@@ -1,0 +1,183 @@
+# Copyright (C) 2024 Jegstudio
+# This file is distributed under the GPLv3.
+msgid ""
+msgstr ""
+"Project-Id-Version: Gutenverse Companion 1.0.4\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/gutenverse-companion\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2024-12-05T03:50:56+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.9.0\n"
+"X-Domain: gutenverse-companion\n"
+
+#. Plugin Name of the plugin
+msgid "Gutenverse Companion"
+msgstr ""
+
+#. Plugin URI of the plugin
+msgid "https://gutenverse.com/"
+msgstr ""
+
+#. Description of the plugin
+msgid "Mandatory plugin to install when installing Base themes from Gutenverse."
+msgstr ""
+
+#. Author of the plugin
+msgid "Jegstudio"
+msgstr ""
+
+#. Author URI of the plugin
+msgid "https://jegtheme.com/"
+msgstr ""
+
+#: includes/class-api.php:78
+#: includes/class-api.php:98
+#: includes/class-api.php:118
+#: includes/class-api.php:138
+#: includes/class-api.php:158
+#: includes/class-api.php:178
+#: includes/class-api.php:197
+msgid "Forbidden Access"
+msgstr ""
+
+#: includes/class-dashboard.php:163
+#: includes/class-dashboard.php:164
+msgid "Companion"
+msgstr ""
+
+#: includes/class-dashboard.php:179
+#: includes/class-dashboard.php:180
+msgid "Wizard Setup"
+msgstr ""
+
+#: includes/class-init.php:156
+msgid "Action Required - Install Gutenverse Theme"
+msgstr ""
+
+#: includes/class-init.php:157
+msgid "Gutenverse Companion is the complementary plugin to Gutenverse theme. It adds a bunch of great features to the theme and acts as an unlocker for the Gutenverse Pro package. In order to take full advantage of all features it has to offer - please install and activate the Gutenverse theme also."
+msgstr ""
+
+#: includes/class-init.php:159
+msgid "Close notification"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Unlock Limitless Possibilities with "
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Gutenverse PRO"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Empowering you to build a website that truly stands out with advanced features and seamless integration."
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Upgrade To PRO"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Back"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Next"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Choose Prebuilt Templates"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Discover a wide selection of themes, each carefully crafted to meet the unique needs of your website. Whether you're building a blog, portfolio, or business site."
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "PRO"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Upgrade PRO"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Currently Used"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Switch Template"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Import Demo"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "View Demo"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Skip"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Importing “Home” demo in progress..."
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Import: Demo Home...."
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Important Notice"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Please do not refresh or close the page while importing data is in progress."
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Install Demo Completed"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "All Demo is successfully imported!"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Close"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Completed"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Choose Template"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Upgrade Your Site"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Finalizing"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Congratulations All Set 🤩"
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "This theme is built with Gutenverse, a powerful and lightweight Gutenberg blocks and page builder plugin for the WordPress Site Editor."
+msgstr ""
+
+#: assets/js/wizard.js:1
+msgid "Visit Dashboard"
+msgstr ""
