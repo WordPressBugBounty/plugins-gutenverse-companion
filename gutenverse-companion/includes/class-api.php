@@ -14,6 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 use WP_Error;
+use WP_Query;
+use WP_REST_Response;
 use ZipArchive;
 
 /**
@@ -184,12 +186,33 @@ class Api {
 				},
 			)
 		);
+
 		register_rest_route(
 			self::ENDPOINT,
 			'import/images',
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'import_images' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new \WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'import/menus',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'import_menus' ),
 				'permission_callback' => function () {
 					if ( ! current_user_can( 'manage_options' ) ) {
 						return new \WP_Error(
@@ -294,6 +317,14 @@ class Api {
 
 		add_post_meta( $attach_id, '_import_source', $url, true );
 
+		$imported_options = get_option( 'gutenverse-companion-imported-options' );
+		if ( $imported_options ) {
+			$imported_media            = $imported_options['media'];
+			$imported_media[]          = $attach_id;
+			$imported_options['media'] = $imported_media;
+			update_option( 'gutenverse-companion-imported-options', $imported_options );
+		}
+
 		return array(
 			'id'  => $attach_id,
 			'url' => $upload['url'],
@@ -309,46 +340,11 @@ class Api {
 		$name    = sanitize_text_field( $request->get_param( 'template' ) );
 		$pattern = $request->get_param( 'pattern' );
 
-		$upload_dir   = wp_upload_dir();
-		$target_dir   = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' );
-		$source_dir   = $target_dir . '/demo/templates';
-		$template_dir = $target_dir . '/templates';
-
-		global $wp_filesystem;
-
-		if ( ! function_exists( 'request_filesystem_credentials' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-
-		if ( ! $wp_filesystem->is_dir( $source_dir ) ) {
-			echo 'Source directory does not exist!';
-			return false;
-		}
-
-		if ( ! $wp_filesystem->is_dir( $template_dir ) ) {
-			$wp_filesystem->mkdir( $template_dir );
-		}
-
-		$html_files = $wp_filesystem->dirlist( $source_dir, true );
-
-		foreach ( $html_files as $file_name => $file_info ) {
-			if ( 'html' === pathinfo( $file_name, PATHINFO_EXTENSION ) ) {
-				$file_path = trailingslashit( $source_dir ) . $file_name;
-				$content   = $wp_filesystem->get_contents( $file_path );
-
-				foreach ( $pattern as $pat ) {
-					foreach ( $pat as $key => $id ) {
-						$content = str_replace( "{{{$key}}}", $id, $content );
-					}
-				}
-
-				$target_file_path = trailingslashit( $template_dir ) . $file_name;
-				$wp_filesystem->put_contents( $target_file_path, $content );
-
-			}
-		}
-
-		$this->restore_templates( $name );
+		$upload_dir = wp_upload_dir();
+		$target_dir = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' );
+		$this->assign_templates( $target_dir, $pattern );
+		$this->assign_parts( $target_dir, $pattern );
+		$this->set_global_fonts( $target_dir );
 
 		return update_option(
 			'gutenverse_companion_template_options',
@@ -358,6 +354,121 @@ class Api {
 				'template_dir' => $target_dir,
 			)
 		);
+	}
+
+	/**
+	 * Assign Template
+	 *
+	 * @param string $target_dir .
+	 * @param array  $pattern .
+	 */
+	public function assign_templates( $target_dir, $pattern ) {
+		$source_template_dir = $target_dir . '/demo/templates';
+		$target_template_dir = $target_dir . '/templates';
+
+		global $wp_filesystem;
+
+		if ( ! function_exists( 'request_filesystem_credentials' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+
+		if ( ! $wp_filesystem->is_dir( $source_template_dir ) ) {
+			echo 'Source directory does not exist!';
+			return false;
+		}
+
+		if ( ! $wp_filesystem->is_dir( $target_template_dir ) ) {
+			$wp_filesystem->mkdir( $target_template_dir );
+		}
+
+		$html_template_files = $wp_filesystem->dirlist( $source_template_dir, true );
+
+		foreach ( $html_template_files as $file_name => $file_info ) {
+			if ( 'html' === pathinfo( $file_name, PATHINFO_EXTENSION ) ) {
+				$file_path = trailingslashit( $source_template_dir ) . $file_name;
+				$content   = $wp_filesystem->get_contents( $file_path );
+
+				foreach ( $pattern as $pat ) {
+					foreach ( $pat as $key => $id ) {
+						$content = str_replace( "{{{$key}}}", $id, $content );
+					}
+				}
+
+				$target_file_path = trailingslashit( $target_template_dir ) . $file_name;
+				$wp_filesystem->put_contents( $target_file_path, $content );
+
+			}
+		}
+	}
+
+	/**
+	 * Assign Parts
+	 *
+	 * @param string $target_dir .
+	 * @param array  $pattern .
+	 */
+	public function assign_parts( $target_dir, $pattern ) {
+		$source_parts_dir = $target_dir . '/demo/parts';
+		$target_parts_dir = $target_dir . '/parts';
+
+		global $wp_filesystem;
+
+		if ( ! function_exists( 'request_filesystem_credentials' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+		}
+		if ( ! $wp_filesystem->is_dir( $source_parts_dir ) ) {
+			echo 'Source directory does not exist!';
+			return false;
+		}
+
+		if ( ! $wp_filesystem->is_dir( $target_parts_dir ) ) {
+			$wp_filesystem->mkdir( $target_parts_dir );
+		}
+
+		$html_parts_files = $wp_filesystem->dirlist( $source_parts_dir, true );
+
+		foreach ( $html_parts_files as $file_name => $file_info ) {
+			if ( 'html' === pathinfo( $file_name, PATHINFO_EXTENSION ) ) {
+				$file_path = trailingslashit( $source_parts_dir ) . $file_name;
+				$content   = $wp_filesystem->get_contents( $file_path );
+
+				foreach ( $pattern as $pat ) {
+					foreach ( $pat as $key => $id ) {
+						$content = str_replace( "{{{$key}}}", $id, $content );
+					}
+				}
+
+				$target_file_path = trailingslashit( $target_parts_dir ) . $file_name;
+				$wp_filesystem->put_contents( $target_file_path, $content );
+
+			}
+		}
+	}
+
+	/**
+	 * Set Global Font
+	 *
+	 * @param string $target_dir .
+	 */
+	public function set_global_fonts( $target_dir ) {
+		$font_dir      = $target_dir . '/demo/global/font.json';
+		$fonts_options = get_option( 'gutenverse-global-variable-font-' . get_stylesheet(), array() );
+		if ( file_exists( $font_dir ) ) {
+			$json_content = file_get_contents( $font_dir );
+			$fonts        = json_decode( $json_content, true );
+			foreach ( $fonts as $font ) {
+				$existing_ids = array_column( $fonts_options, 'id' );
+
+				if ( ! in_array( $font['id'], $existing_ids, true ) ) {
+					$fonts_options[] = array(
+						'id'   => $font['id'],
+						'name' => $font['name'],
+						'font' => $font['font'],
+					);
+				}
+			}
+			update_option( 'gutenverse-global-variable-font-' . get_stylesheet(), $fonts_options );
+		}
 	}
 
 	/**
@@ -442,118 +553,137 @@ class Api {
 	 */
 	public function demo_import( $request ) {
 		$name      = sanitize_text_field( $request->get_param( 'name' ) );
-		$file      = esc_url( $request->get_param( 'file' ) );
+		$demo_id   = sanitize_text_field( $request->get_param( 'demo_id' ) );
 		$installed = sanitize_text_field( $request->get_param( 'installed' ) );
 		$active    = sanitize_text_field( $request->get_param( 'active' ) );
+		$key       = sanitize_text_field( $request->get_param( 'key' ) );
 
 		if ( $active ) {
-			$this->backup_templates( $active );
+			$this->get_companion_global_color();
 		}
 
+		/**Get File Url */
+		$request_body    = wp_json_encode(
+			array(
+				'demo_id' => $demo_id,
+				'key'     => $key,
+			)
+		);
+		$response        = wp_remote_post(
+			GUTENVERSE_COMPANION_LIBRARY_URL . 'wp-json/gutenverse-server/v4/companion/demo',
+			array(
+				'body'    => $request_body,
+				'headers' => array(
+					'Content-Type' => 'application/json',
+					'Origin'       => $request->get_header( 'origin' ),
+				),
+			)
+		);
+		$file            = json_decode( wp_remote_retrieve_body( $response ) );
+		$status_response = wp_remote_retrieve_response_code( $response );
+		if ( is_wp_error( $response ) || 200 !== $status_response ) {
+			return new WP_REST_Response(
+				array(
+					'message' => 'Unable to import/switch companion demo : ' . $file->message,
+				),
+				400
+			);
+		}
+		$this->remove_previous_demo_data( $name );
+		$file          = json_decode( wp_remote_retrieve_body( $response ) );
+		$imported_data = array(
+			'demo_name' => $name,
+			'demo_id'   => $demo_id,
+		);
+		update_option( 'gutenverse-companion-imported-options', $imported_data );
 		return $this->demo_download( $file, $name, $installed );
 	}
 
 	/**
-	 * Restore Edited Tempaltes
+	 * Removing Previous Demo Data
 	 *
 	 * @param string $name .
 	 */
-	public function restore_templates( $name ) {
-		$upload_dir = wp_upload_dir();
-		$target_dir = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' ) . '/backup-templates';
+	public function remove_previous_demo_data( $name ) {
+		$imported_options = get_option( 'gutenverse-companion-imported-options' );
 
+		/**Removing data */
+		$this->delete_posts( $imported_options['pages'], 'post' );
+		$this->delete_posts( $imported_options['patterns'], 'post' );
+		$this->delete_posts( $imported_options['media'], 'post' );
+
+		/**Removing saved template part and template */
+		$upload_dir          = wp_upload_dir();
+		$target_dir          = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' );
+		$source_template_dir = $target_dir . '/demo/templates';
+		$source_parts_dir    = $target_dir . '/demo/parts';
+
+		/**Removing template */
+		$this->delete_template_and_parts( $source_template_dir, 'wp_template' );
+		$this->delete_template_and_parts( $source_parts_dir, 'wp_template_part' );
+	}
+
+	/**
+	 * Delete Template and Parts
+	 *
+	 * @param string $source .
+	 * @param string $post_type .
+	 */
+	public function delete_template_and_parts( $source, $post_type ) {
 		global $wp_filesystem;
-		if ( ! $wp_filesystem ) {
+
+		if ( ! function_exists( 'request_filesystem_credentials' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/file.php';
-			WP_Filesystem();
 		}
+		$html_files = $wp_filesystem->dirlist( $source, true );
+		foreach ( $html_files as $file_name => $file_info ) {
+			if ( 'html' === pathinfo( $file_name, PATHINFO_EXTENSION ) ) {
+				$filename       = pathinfo( $file_name, PATHINFO_FILENAME );
+				$template_posts = get_posts(
+					array(
+						'post_type'      => $post_type,
+						'name'           => $filename,
+						'posts_per_page' => 1,
+						'post_status'    => 'any',
+					)
+				);
 
-		if ( $wp_filesystem->is_dir( $target_dir ) ) {
-			$files = $wp_filesystem->dirlist( $target_dir );
-
-			if ( ! empty( $files ) ) {
-				foreach ( $files as $file_name => $file_info ) {
-					$file_path = trailingslashit( $target_dir ) . $file_name;
-
-					if ( strpos( $file_name, '.json' ) !== false ) {
-						$json_data = $wp_filesystem->get_contents( $file_path );
-						$post_data = json_decode( $json_data, true );
-
-						if ( is_array( $post_data ) && ! empty( $post_data ) ) {
-
-							$post_id = wp_insert_post(
-								array(
-									'post_type'    => 'wp_template',
-									'post_name'    => $post_data['post_name'],
-									'post_title'   => $post_data['post_title'],
-									'post_content' => $post_data['post_content'],
-									'post_excerpt' => $post_data['post_excerpt'],
-									'post_status'  => 'publish',
-									'meta_input'   => array(
-										'origin' => 'theme',
-									),
-								)
-							);
-
-							if ( ! is_wp_error( $post_id ) ) {
-								wp_set_object_terms( $post_id, get_option( 'stylesheet' ), 'wp_theme' );
-							}
-						}
-					}
+				if ( ! empty( $template_posts ) ) {
+					wp_delete_post( $template_posts[0]->ID, true );
 				}
-
-				$wp_filesystem->rmdir( $target_dir, true );
 			}
 		}
 	}
 
 	/**
-	 * Backup Edited Tempaltes
+	 * Delete Posts
 	 *
-	 * @param string $name .
+	 * @param array  $posts .
+	 * @param string $type .
 	 */
-	public function backup_templates( $name ) {
-		$saved_template_query = new \WP_Query(
-			array(
-				'post_type'   => 'wp_template',
-				'meta_key'    => 'origin',
-				'meta_value'  => 'theme',
-				'post_status' => 'publish',
-			)
-		);
-
-		if ( $saved_template_query->have_posts() ) {
-			foreach ( $saved_template_query->posts as $post ) {
-				$upload_dir = wp_upload_dir();
-				$target_dir = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' ) . '/backup-templates';
-
-				if ( ! file_exists( $target_dir ) ) {
-					wp_mkdir_p( $target_dir );
-				}
-
-				$post_data = array(
-					'post_name'    => $post->post_name,
-					'post_title'   => $post->post_title,
-					'post_content' => $post->post_content,
-					'post_excerpt' => $post->post_excerpt,
-				);
-
-				$json_data = wp_json_encode( $post_data, JSON_PRETTY_PRINT );
-
-				$file_name = $post->post_name . '.json';
-
-				$file_path = trailingslashit( $target_dir ) . $file_name;
-
-				global $wp_filesystem;
-				if ( ! $wp_filesystem ) {
-					require_once ABSPATH . 'wp-admin/includes/file.php';
-					WP_Filesystem();
-				}
-
-				if ( $wp_filesystem->put_contents( $file_path, $json_data, FS_CHMOD_FILE ) ) {
-					wp_delete_post( $post->ID, true );
-				}
+	public function delete_posts( $posts, $type = 'post' ) {
+		foreach ( $posts as $post_id ) {
+			switch ( $type ) {
+				case 'media':
+					wp_delete_attachment( $post_id, true );
+					break;
+				case 'post':
+				default:
+					wp_delete_post( $post_id, true );
+					break;
 			}
+		}
+	}
+
+	/**
+	 * Get Companion Theme Global Color
+	 */
+	public function get_companion_global_color() {
+		$theme       = wp_get_theme();
+		$global_data = get_page_by_path( sprintf( 'wp-global-styles-%s', urlencode( $theme->get_stylesheet() ) ), OBJECT, 'wp_global_styles' );
+
+		if ( $global_data ) {
+			wp_delete_post( $global_data->ID, false );
 		}
 	}
 
@@ -565,40 +695,121 @@ class Api {
 	 * @return boolean
 	 */
 	public function demo_get( $request ) {
-		$theme_slug = sanitize_text_field( $request->get_param( 'theme_slug' ) );
-		$key        = sanitize_text_field( $request->get_param( 'key' ) );
+		$theme = wp_get_theme();
 
-		$request_body = wp_json_encode(
-			array(
-				'base_theme' => $theme_slug,
-				'key'        => $key,
-			)
-		);
+		/**Check if file exist */
+		$upload_dir       = wp_upload_dir();
+		$upload_base_path = $upload_dir['basedir'];
+		$file_path        = $upload_base_path . '/gutenverse-companion/' . $theme->get_stylesheet() . '/data.json';
 
-		$response = wp_remote_post(
-			GUTENVERSE_COMPANION_LIBRARY_URL . 'wp-json/gutenverse-server/v4/companion/list',
-			array(
-				'body'    => $request_body,
-				'headers' => array(
-					'Content-Type' => 'application/json',
-					'Origin'       => $request->get_header( 'origin' ),
-				),
-			)
-		);
+		global $wp_filesystem;
 
-		if ( is_wp_error( $response ) ) {
-			return new \WP_Error( 'request_failed', 'Unable to fetch demo data', array( 'status' => 500 ) );
+		if ( ! function_exists( 'WP_Filesystem' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+			WP_Filesystem();
 		}
 
-		$response_body = wp_remote_retrieve_body( $response );
-		$data          = json_decode( $response_body, true );
+		/**Check schedule fetch */
+		$companion_data = get_option( 'gutenverse-companion-' . urlencode( $theme->get_stylesheet() ), false );
+		$fetch_time     = null;
+		$now            = time();
+		if ( $companion_data ) {
+			$fetch_time = $companion_data['fetch_time'];
+		}
+		$this->update_demo_data( $request );
 
-		if ( empty( $data ) ) {
-			return new \WP_Error( 'no_data', 'No demo data found', array( 'status' => 404 ) );
+		if ( null === $fetch_time || $fetch_time < $now ) {
+			/**Update demo data and fetch time */
+			$this->update_demo_data( $request );
+			$next_fetch = $now + ( 24 * 60 * 60 );
+			update_option(
+				'gutenverse-companion-' . urlencode( $theme->get_stylesheet() ),
+				array(
+					'fetch_time' => $next_fetch,
+				)
+			);
 		}
 
-		if ( isset( $data['demo_list'] ) ) {
-			foreach ( $data['demo_list'] as &$demo ) {
+		if ( ! $wp_filesystem->exists( $file_path ) ) {
+			$this->update_demo_data( $request );
+		}
+
+		$data = $this->demo_data( $request );
+		return rest_ensure_response( $data );
+	}
+
+	/**
+	 * Demo data
+	 *
+	 * @param object $request .
+	 * @return array
+	 */
+	public function demo_data( $request ) {
+		/**Get file Path */
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		WP_Filesystem();
+		global $wp_filesystem;
+		$basedir   = wp_upload_dir()['basedir'];
+		$theme     = wp_get_theme();
+		$directory = $basedir . '/gutenverse-companion/' . $theme->get_stylesheet();
+		if ( ! is_dir( $directory ) ) {
+			wp_mkdir_p( $directory );
+		}
+		$file_path = $directory . '/data.json';
+
+		/**Get Json Data */
+		$json = array();
+		if ( $wp_filesystem->exists( $file_path ) ) {
+			$file = $wp_filesystem->get_contents( $file_path );
+			$json = json_decode( $file, true );
+		}
+
+		/**Get License Tier */
+		$key      = sanitize_text_field( $request->get_param( 'key' ) );
+		$arr_tier = array(
+			'general',
+		);
+		if ( $key ) {
+			$request_body = wp_json_encode(
+				array(
+					'key'    => $key,
+					'domain' => $request->get_header( 'origin' ),
+				)
+			);
+			$response     = wp_remote_post(
+				GUTENVERSE_LICENSE_SERVER . '/wp-json/gutenverse-pro/v2/license/tier',
+				array(
+					'body'      => $request_body,
+					'headers'   => array(
+						'Content-Type' => 'application/json',
+						'Origin'       => $request->get_header( 'origin' ),
+					),
+					'sslverify' => false,
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+				$error_message = $response->get_error_message();
+				return new WP_REST_Response(
+					array(
+						'message' => 'Unable to fetch tier license : ' . $error_message,
+					),
+					400
+				);
+			}
+			$tier_levels = array(
+				'personal'     => array( 'general', 'personal' ),
+				'professional' => array( 'general', 'personal', 'professional' ),
+				'agency'       => array( 'general', 'personal', 'professional', 'agency' ),
+				'enterprise'   => array( 'general', 'personal', 'professional', 'agency', 'enterprise' ),
+			);
+			$tier        = json_decode( wp_remote_retrieve_body( $response ) );
+			$arr_tier    = $tier_levels[ $tier ];
+		}
+
+		/**Add status to array list */
+		if ( isset( $json['demo_list'] ) ) {
+			foreach ( $json['demo_list'] as &$demo ) {
 				$name       = $demo['title'];
 				$upload_dir = wp_upload_dir();
 				$target_dir = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' ) . '/demo';
@@ -613,11 +824,70 @@ class Api {
 
 				$demo['status']['exists']         = (bool) $wp_filesystem->is_dir( $target_dir );
 				$demo['status']['using_template'] = isset( get_option( 'gutenverse_companion_template_options' )['active_demo'] ) && get_option( 'gutenverse_companion_template_options' )['active_demo'] === $name;
+				$need_upgrade                     = false;
+				if ( ! in_array( $demo['tier'], $arr_tier, false ) ) {
+					$need_upgrade = true;
+				}
+				$all_tier = array( 'general', 'personal', 'professional', 'agency', 'enterprise' );
+				$tier_index = array_search( $demo['tier'], $all_tier );
+				if ( $index !== false ) {
+					$tiers_after                     = array_slice( $all_tier, $tier_index + 1 );
+					$demo['status']['required_tier'] = $tiers_after;
+
+				}
+				$demo['status']['need_upgrade'] = $need_upgrade;
+
 			}
 			unset( $demo );
 		}
+		return $json;
+	}
 
-		return rest_ensure_response( $data );
+	/**
+	 * Update Demo Data
+	 *
+	 * @param object $request .
+	 */
+	public function update_demo_data( $request ) {
+		$theme_slug = sanitize_text_field( $request->get_param( 'theme_slug' ) );
+		$key        = sanitize_text_field( $request->get_param( 'key' ) );
+
+		/**Check if directory exist */
+		$basedir   = wp_upload_dir()['basedir'];
+		$theme     = wp_get_theme();
+		$directory = $basedir . '/gutenverse-companion/' . $theme->get_stylesheet();
+		if ( ! is_dir( $directory ) ) {
+			wp_mkdir_p( $directory );
+		}
+		$file_path = $directory . '/data.json';
+
+		/**Fetch data */
+		$request_body = wp_json_encode(
+			array(
+				'base_theme' => $theme_slug,
+				'key'        => $key,
+			)
+		);
+		$response     = wp_remote_post(
+			GUTENVERSE_COMPANION_LIBRARY_URL . 'wp-json/gutenverse-server/v4/companion/list',
+			array(
+				'body'    => $request_body,
+				'headers' => array(
+					'Content-Type' => 'application/json',
+					'Origin'       => $request->get_header( 'origin' ),
+				),
+			)
+		);
+		if ( is_wp_error( $response ) ) {
+			return new \WP_Error( 'request_failed', 'Unable to fetch demo data', array( 'status' => 500 ) );
+		}
+
+		$response_body = wp_remote_retrieve_body( $response );
+		/**Save data to json file */
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		WP_Filesystem();
+		global $wp_filesystem;
+		$wp_filesystem->put_contents( $file_path, $response_body, FS_CHMOD_FILE );
 	}
 
 	/**
@@ -645,7 +915,8 @@ class Api {
 		$valid_arrays = array();
 
 		foreach ( $php_files as $file_path ) {
-			$file_data = include $file_path;
+			$file_data           = include $file_path;
+			$file_data['images'] = json_decode( $file_data['images'], true );
 			if ( is_array( $file_data ) ) {
 				$valid_arrays[ str_replace( '.php', '', basename( $file_path ) ) ] = $file_data;
 			}
@@ -654,7 +925,6 @@ class Api {
 		if ( empty( $valid_arrays ) ) {
 			return new WP_Error( 'no_valid_arrays', 'No valid arrays found in the PHP files.', array( 'status' => 400 ) );
 		}
-
 		return rest_ensure_response( $valid_arrays );
 	}
 
@@ -665,9 +935,13 @@ class Api {
 	 * @return WP_REST_Response|WP_Error The response object or error.
 	 */
 	public function pattern_insert( $request ) {
-		$content = $request->get_param( 'content' );
-		$slug    = sanitize_text_field( $request->get_param( 'slug' ) );
-		$title   = sanitize_text_field( $request->get_param( 'title' ) );
+		$content    = $request->get_param( 'content' );
+		$slug       = sanitize_text_field( $request->get_param( 'slug' ) );
+		$title      = sanitize_text_field( $request->get_param( 'title' ) );
+		$title_demo = sanitize_text_field( $request->get_param( 'demo_slug' ) );
+		$additional = sanitize_text_field( $request->get_param( 'additional' ) );
+
+		$additional = json_decode( $additional, true );
 
 		$meta_key   = 'gutenverse_companion_pattern_slug';
 		$meta_value = $slug;
@@ -678,9 +952,119 @@ class Api {
 				'meta_key'    => $meta_key,
 				'meta_value'  => $meta_value,
 				'post_status' => 'publish',
-				'fields'      => 'ids', // Only get post IDs.
+				'fields'      => 'ids',
 			)
 		);
+
+		if ( isset( $additional ) ) {
+			foreach ( $additional as $datas ) {
+				foreach ( $datas as $key => $data ) {
+					if ( 'acf-data' === $key && function_exists( 'acf_determine_internal_post_type' ) ) {
+						foreach ( $data as $to_import ) {
+							$post_type = acf_determine_internal_post_type( $to_import['key'] );
+							$post      = acf_get_internal_post_type_post( $to_import['key'], $post_type );
+
+							if ( $post ) {
+								$to_import['ID'] = $post->ID;
+							}
+							$to_import = acf_import_internal_post_type( $to_import, $post_type );
+						}
+					} elseif ( 'post-demo' === $key ) {
+						foreach ( $data as $post_data ) {
+							$existing_post = get_posts(
+								array(
+									'title'       => $post_data['title'],
+									'post_type'   => $post_data['type'],
+									'post_status' => 'any',
+									'numberposts' => 1,
+								)
+							);
+
+							if ( ! empty( $existing_post ) ) {
+								continue;
+							}
+
+							$featured_image_id = null;
+							if ( ! empty( $post_data['featured_image'] ) ) {
+								$image_data = $this->check_image_exist( $post_data['featured_image'] );
+								if ( ! $image_data ) {
+									$image_data = $this->import_image( $post_data['featured_image'] );
+								}
+								$featured_image_id = $image_data['id'];
+							}
+
+							$post_args = array(
+								'post_title'    => $post_data['title'],
+								'post_content'  => $post_data['content'],
+								'post_excerpt'  => $post_data['excerpt'],
+								'post_status'   => $post_data['status'],
+								'post_type'     => $post_data['type'],
+								'post_author'   => get_current_user_id(),
+								'post_date'     => $post_data['date'],
+								'post_modified' => $post_data['modified'],
+							);
+
+							$post_id = wp_insert_post( $post_args );
+
+							if ( $post_id && ! is_wp_error( $post_id ) ) {
+								if ( ! empty( $post_data['meta'] ) ) {
+									foreach ( $post_data['meta'] as $meta_key => $meta_values ) {
+										$meta_values = maybe_unserialize( $meta_values );
+										if ( is_array( $meta_values ) ) {
+											$processed_array = array();
+											foreach ( $meta_values as $item ) {
+												if ( filter_var( $item, FILTER_VALIDATE_URL ) ) {
+													$image_data = $this->check_image_exist( $item );
+													if ( ! $image_data ) {
+														$image_data = $this->import_image( $item );
+													}
+													$attachment_id     = $image_data['id'];
+													$processed_array[] = $attachment_id ? $attachment_id : $item;
+												} else {
+													$processed_array[] = $item;
+												}
+											}
+											update_post_meta( $post_id, $meta_key, $processed_array );
+										} elseif ( filter_var( $meta_values, FILTER_VALIDATE_URL ) ) {
+											$image_data = $this->check_image_exist( $meta_values );
+											if ( ! $image_data ) {
+												$image_data = $this->import_image( $meta_values );
+											}
+											$attachment_id = $image_data['id'];
+											update_post_meta( $post_id, $meta_key, $attachment_id ? $attachment_id : $meta_values );
+										} else {
+											update_post_meta( $post_id, $meta_key, $meta_values );
+										}
+									}
+								}
+
+								if ( $featured_image_id ) {
+									set_post_thumbnail( $post_id, $featured_image_id );
+								}
+
+								if ( ! empty( $post_data['attached_images'] ) ) {
+									foreach ( $post_data['attached_images'] as $image_url ) {
+										$image_data = $this->check_image_exist( $image_url );
+										if ( ! $image_data ) {
+											$image_data = $this->import_image( $image_url );
+										}
+										$attachment_id = $image_data['id'];
+										if ( $attachment_id ) {
+											wp_update_post(
+												array(
+													'ID' => $attachment_id,
+													'post_parent' => $post_id,
+												)
+											);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 
 		if ( $existing_block_query->have_posts() ) {
 			return rest_ensure_response(
@@ -691,6 +1075,11 @@ class Api {
 			);
 		}
 
+		$demo_slug    = strtolower( str_replace( ' ', '-', $title_demo ) );
+		$pattern_list = get_option( $demo_slug . '_' . get_stylesheet() . '_companion_synced_pattern_imported', false );
+
+		$content = $this->check_navbar( $content );
+
 		$block_data = array(
 			'post_title'   => $title,
 			'post_content' => wp_slash( $content ),
@@ -698,17 +1087,31 @@ class Api {
 			'post_type'    => 'wp_block',
 		);
 
-		$post_id = wp_insert_post( $block_data );
-
-		if ( $post_id && ! is_wp_error( $post_id ) ) {
-			update_post_meta( $post_id, $meta_key, $meta_value );
-			return rest_ensure_response(
-				array(
-					'slug' => $slug,
-					'id'   => $post_id,
-				)
-			);
+		$post_id          = wp_insert_post( $block_data );
+		$imported_options = get_option( 'gutenverse-companion-imported-options' );
+		if ( $imported_options ) {
+			$imported_patterns            = $imported_options['patterns'];
+			$imported_patterns[]          = $post_id;
+			$imported_options['patterns'] = $imported_patterns;
+			update_option( 'gutenverse-companion-imported-options', $imported_options );
 		}
+		update_post_meta( $post_id, $meta_key, $meta_value );
+
+		$pattern_list[] = array(
+			'slug'     => $slug,
+			'title'    => $title,
+			'content'  => '<!-- wp:block {"ref":' . $post_id . '} /-->',
+			'inserter' => false,
+		);
+
+		update_option( $demo_slug . '_' . get_stylesheet() . '_companion_synced_pattern_imported', $pattern_list );
+
+		return rest_ensure_response(
+			array(
+				'slug' => $slug,
+				'id'   => $post_id ?? '',
+			)
+		);
 	}
 
 	/**
@@ -724,6 +1127,7 @@ class Api {
 		WP_Filesystem();
 
 		$name       = sanitize_text_field( $request->get_param( 'template' ) );
+		$misc       = sanitize_text_field( $request->get_param( 'misc' ) );
 		$pattern    = $request->get_param( 'pattern' );
 		$upload_dir = wp_upload_dir();
 		$target_dir = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' ) . '/demo/gutenverse-pages/';
@@ -738,6 +1142,7 @@ class Api {
 		foreach ( $pages as $value ) {
 			$page_id = null;
 			$content = $value['content'];
+			$images  = $value['images'];
 
 			foreach ( $pattern as $pat ) {
 				foreach ( $pat as $key => $id ) {
@@ -745,8 +1150,21 @@ class Api {
 				}
 			}
 
+			foreach ( $images as $index => $url ) {
+				$url  = json_decode( $url );
+				$data = $this->check_image_exist( $url );
+				if ( ! $data ) {
+					$data = $this->import_image( $image );
+				}
+				$final_url   = $data['url'];
+				$placeholder = '{{{image:' . $index . ':url}}}';
+				$content     = str_replace( $placeholder, $final_url, $content );
+			}
+
+			$content = $this->check_navbar( $content );
+
 			$new_page = array(
-				'post_title'    => $value['pagetitle'] . ' - ' . $name,
+				'post_title'    => $value['pagetitle'],
 				'post_content'  => wp_slash( $content ),
 				'post_status'   => 'publish',
 				'post_type'     => 'page',
@@ -766,21 +1184,44 @@ class Api {
 			$query = new \WP_Query( $args );
 
 			while ( $query->have_posts() ) {
-				$new_page['post_title'] = $original_title . ' #' . $suffix;
+				if ( 'do-not-import' === $misc ) {
+					return true;
+				} elseif ( 'keep-a-copy' === $misc ) {
+					$new_page['post_title'] = $original_title . ' #' . $suffix;
 
-				$query = new \WP_Query(
-					array(
-						'post_type'   => 'page',
-						'post_status' => 'publish',
-						'title'       => $new_page['post_title'],
-						'fields'      => 'ids',
-					)
-				);
+					$query = new \WP_Query(
+						array(
+							'post_type'   => 'page',
+							'post_status' => 'publish',
+							'title'       => $new_page['post_title'],
+							'fields'      => 'ids',
+						)
+					);
 
-				++$suffix;
+					++$suffix;
+				} elseif ( 'replace' === $misc ) {
+					$query->the_post();
+					$post_id = get_the_ID();
+
+					wp_update_post(
+						array(
+							'ID'           => $post_id,
+							'post_content' => wp_slash( $content ),
+						)
+					);
+
+					return true;
+				}
 			}
 
-			$page_id = wp_insert_post( $new_page );
+			$page_id          = wp_insert_post( $new_page );
+			$imported_options = get_option( 'gutenverse-companion-imported-options' );
+			if ( $imported_options ) {
+				$imported_page             = $imported_options['pages'];
+				$imported_page[]           = $page_id;
+				$imported_options['pages'] = $imported_page;
+				update_option( 'gutenverse-companion-imported-options', $imported_options );
+			}
 
 			if ( $value['is_homepage'] && $page_id ) {
 				update_option( 'show_on_front', 'page' );
@@ -788,6 +1229,159 @@ class Api {
 			}
 		}
 
+		return true;
+	}
+
+	/**
+	 * Check Navbar if exists change the menuId
+	 *
+	 * @param string $content .
+	 *
+	 * @return string
+	 */
+	public function check_navbar( $content ) {
+		$html_blocks = parse_blocks( $content );
+		$blocks      = _flatten_blocks( $html_blocks );
+
+		foreach ( $blocks as $block ) {
+			if ( 'gutenverse/nav-menu' === $block['blockName'] ) {
+				$block_before = serialize_block( $block );
+				$block_after  = '';
+
+				if ( ! empty( $block['attrs']['menuId'] ) ) {
+					$original_menu_id = $block['attrs']['menuId'];
+					$menu_exists      = wp_get_nav_menu_object( 'menu-' . $original_menu_id );
+
+					if ( ! $menu_exists ) {
+						$menu_id = wp_create_nav_menu( 'menu-' . $original_menu_id );
+						wp_update_nav_menu_item(
+							$menu_id,
+							0,
+							array(
+								'menu-item-title'  => 'Home',
+								'menu-item-url'    => home_url( '/' ),
+								'menu-item-status' => 'publish',
+							)
+						);
+						$imported_options = get_option( 'gutenverse-companion-imported-options' );
+						if ( $imported_options ) {
+							$imported_menus            = $imported_options['menus'];
+							$imported_menus[]          = array(
+								'original_menu_id' => $original_menu_id,
+								'created_menu_id'  => $menu_id,
+								'menu_name'        => 'menu-' . $original_menu_id,
+							);
+							$imported_options['menus'] = $imported_menus;
+							update_option( 'gutenverse-companion-imported-options', $imported_options );
+						}
+					} else {
+						$menu_id = $menu_exists->term_id;
+					}
+					$block['attrs']['menuId'] = $menu_id;
+					$block_after              = serialize_block( $block );
+				}
+
+				$content = str_replace( $block_before, $block_after, $content );
+			}
+		}
+		return $content;
+	}
+
+	/**
+	 * Import demo pages
+	 *
+	 * @param object $request .
+	 *
+	 * @return boolean
+	 */
+	public function import_menus( $request ) {
+		global $wp_filesystem;
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		WP_Filesystem();
+
+		$upload_dir = wp_upload_dir();
+		$name       = sanitize_text_field( $request->get_param( 'template' ) );
+		$target_dir = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' ) . '/demo/misc/menu.json';
+
+		/**Get Json Data */
+		$json = array();
+		if ( $wp_filesystem->exists( $target_dir ) ) {
+			$file = $wp_filesystem->get_contents( $target_dir );
+			$json = json_decode( $file, true );
+			foreach ( $json as $menu ) {
+				$original_menu_id = $menu['menu_id'];
+				$menu_exists      = wp_get_nav_menu_object( 'menu-' . $original_menu_id );
+
+				if ( $menu_exists ) {
+					/**Remove Dummy Item */
+					foreach ( $menu_items as $item ) {
+						wp_delete_post( $item->ID, true );
+					}
+
+					/**Add Actual Item */
+					$menu_id   = $menu_exists->term_id;
+					$parent_id = array();
+					foreach ( $menu['menu_data'] as $idx => $data ) {
+						$menu_parent = 0;
+						$url         = $data['url'];
+						if ( null !== $data['parent'] ) {
+							foreach ( $parent_id as $pr_id ) {
+								if ( strval( $pr_id['idx'] ) === strval( $data['parent'] ) ) {
+									$menu_parent = $pr_id['menu_id'];
+								}
+							}
+						}
+						if ( $data['object_slug'] && ( 'page' === $data['type'] ) ) {
+							$args = array(
+								'name'        => $data['object_slug'],
+								'post_type'   => 'page',
+								'post_status' => 'publish',
+								'numberposts' => 1,
+							);
+
+							$query = new WP_Query( $args );
+
+							if ( $query->have_posts() ) {
+								$page = $query->posts[0]; // Get the first result
+							} else {
+								$page = null; // No page found
+							}
+
+							wp_reset_postdata();
+							if ( $page ) {
+								$url = get_permalink( $page->ID );
+							}
+						}
+
+						$menu_items   = wp_get_nav_menu_items( $menu_id );
+						$menu_item_id = 0;
+						if ( $menu_items ) {
+							foreach ( $menu_items as $menu_item ) {
+								if ( $menu_item->title === $data['title'] ) {
+									$menu_item_id = $menu_item->ID;
+								}
+							}
+						}
+						$menu_item_id = wp_update_nav_menu_item(
+							$menu_id,
+							$menu_item_id,
+							array(
+								'menu-item-title'     => $data['title'],
+								'menu-item-url'       => $url,
+								'menu-item-status'    => 'publish',
+								'menu-item-parent-id' => $menu_parent,
+							)
+						);
+						if ( $data['have_child'] ) {
+							$parent_id[] = array(
+								'idx'     => $idx,
+								'menu_id' => $menu_item_id,
+							);
+						}
+					}
+				}
+			}
+		}
 		return true;
 	}
 }

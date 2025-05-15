@@ -26,6 +26,7 @@ spl_autoload_register(
 		$class_path     = explode( '\\', $relative_class );
 		$relative_class = array_pop( $class_path );
 		$class_path     = strtolower( implode( '/', $class_path ) );
+		$class_path     = str_replace( '_', '-', $class_path );
 
 		$class_name = 'class-' . $relative_class . '.php';
 		$class_name = str_replace( '_', '-', $class_name );

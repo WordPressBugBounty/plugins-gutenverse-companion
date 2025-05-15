@@ -98,6 +98,13 @@ class Dashboard {
 			$this->companion_config()
 		);
 
+		wp_enqueue_style(
+			'gutenverse-companion-google-fonts',
+			'//fonts.googleapis.com/css?family=Inter:400,500,600',
+			false,
+			1
+		);
+
 		wp_localize_script( 'gutenverse-companion-wizard', 'GutenverseCompanionConfig', $this->companion_config() );
 	}
 
