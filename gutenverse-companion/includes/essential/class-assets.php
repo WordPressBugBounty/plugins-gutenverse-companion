@@ -234,7 +234,7 @@ class Assets {
 	 * JS Pro Config.
 	 */
 	public function js_pro_config() {
-		$url  = apply_filters( 'gutenverse_companion_essential_assets_url', false );
+		$url = apply_filters( 'gutenverse_companion_essential_assets_url', false );
 
 		/**
 		 * 'jeg_theme_essential_assets_url' deprecated since version 1.0.1 Use 'gutenverse_companion_essential_assets_url' instead.
@@ -263,7 +263,7 @@ class Assets {
 	 */
 	public function block_config( $config ) {
 		$config['license']   = $this->get_license();
-		$config['domainURL'] = get_site_url(); // Todo: check if we are using WordPress address.
+		$config['domainURL'] = home_url(); // Todo: check if we are using WordPress address.
 		$config['current']   = ( new DateTime() )->getTimestamp();
 
 		return $config;

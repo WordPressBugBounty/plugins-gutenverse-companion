@@ -1,15 +1,15 @@
-# Copyright (C) 2025 Jegstudio
+# Copyright (C) 2026 Jegstudio
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Gutenverse Companion 1.0.5\n"
+"Project-Id-Version: Gutenverse Companion 2.1.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/gutenverse-companion\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2025-05-15T01:38:41+00:00\n"
+"POT-Creation-Date: 2026-02-04T08:31:21+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.9.0\n"
 "X-Domain: gutenverse-companion\n"
@@ -34,154 +34,835 @@ msgstr ""
 msgid "https://jegtheme.com/"
 msgstr ""
 
-#: includes/class-api.php:80
-#: includes/class-api.php:100
-#: includes/class-api.php:120
-#: includes/class-api.php:140
-#: includes/class-api.php:160
-#: includes/class-api.php:180
-#: includes/class-api.php:200
-#: includes/class-api.php:220
-#: includes/gutenverse-theme/class-gutenverse-theme.php:215
-#: includes/gutenverse-theme/class-gutenverse-theme.php:235
-#: includes/gutenverse-theme/class-gutenverse-theme.php:255
+#: includes/class-api.php:85
+#: includes/class-api.php:105
+#: includes/class-api.php:125
+#: includes/class-api.php:145
+#: includes/class-api.php:165
+#: includes/class-api.php:185
+#: includes/class-api.php:205
+#: includes/class-api.php:225
+#: includes/class-api.php:245
+#: includes/class-api.php:265
+#: includes/class-api.php:285
+#: includes/class-api.php:304
+#: includes/class-api.php:323
+#: includes/class-api.php:342
+#: includes/gutenverse-theme/class-gutenverse-theme.php:284
+#: includes/gutenverse-theme/class-gutenverse-theme.php:304
+#: includes/gutenverse-theme/class-gutenverse-theme.php:324
+#: includes/lite-plus/class-lite-plus-theme.php:235
+#: includes/lite-plus/class-lite-plus-theme.php:257
+#: includes/lite-plus/class-lite-plus-theme.php:277
+#: includes/lite-plus/class-lite-plus-theme.php:297
+#: includes/lite-plus/class-lite-plus-theme.php:317
+#: includes/lite-plus/class-lite-plus-theme.php:337
+#: includes/lite-plus/class-lite-plus-theme.php:357
 msgid "Forbidden Access"
 msgstr ""
 
-#: includes/class-dashboard.php:170
-#: includes/class-dashboard.php:171
-msgid "Companion"
+#: includes/class-dashboard.php:342
+#: includes/class-dashboard.php:343
+#: assets/js/companion.js:2
+msgid "Dashboard"
 msgstr ""
 
-#: includes/class-dashboard.php:186
-#: includes/class-dashboard.php:187
-msgid "Wizard Setup"
+#: includes/class-dashboard.php:352
+#: includes/class-dashboard.php:353
+#: assets/js/companion.js:2
+msgid "Demo"
 msgstr ""
 
-#: includes/class-init.php:264
-msgid "Action Required - Install Gutenverse Theme"
+#: includes/class-dashboard.php:362
+#: includes/class-dashboard.php:363
+#: assets/js/companion.js:2
+msgid "Settings"
 msgstr ""
 
-#: includes/class-init.php:265
-msgid "Gutenverse Companion is the complementary plugin to Gutenverse theme. It adds a bunch of great features to the theme and acts as an unlocker for the Gutenverse Pro package. In order to take full advantage of all features it has to offer - please install and activate the Gutenverse theme also."
+#: includes/class-dashboard.php:372
+#: includes/class-dashboard.php:373
+#: assets/js/companion.js:2
+msgid "System Status"
 msgstr ""
 
-#: includes/class-init.php:267
-msgid "Close notification"
+#: includes/class-dashboard.php:382
+#: includes/class-dashboard.php:383
+#: assets/js/companion.js:2
+msgid "Need Help?"
 msgstr ""
 
-#: assets/js/wizard.js:1
-msgid "Unlock Limitless Possibilities with "
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+msgid "Work Smarter, Build Faster"
 msgstr ""
 
-#: assets/js/wizard.js:1
-msgid "Gutenverse PRO"
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+msgid "Boost your productivity with powerful tools designed to speed up website creation."
 msgstr ""
 
-#: assets/js/wizard.js:1
-msgid "Empowering you to build a website that truly stands out with advanced features and seamless integration."
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+msgid "1000+ Templates Library."
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+msgid "50+ Prebuilt Sites."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+msgid "100+ Advanced Blocks."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+msgid "1000+ Icons Selector."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Upgrade To PRO"
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Design Without Limits"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Unlock unlimited creative possibilities and craft a truly stunning website experience."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Advanced Animation Effects."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Transform."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Text Clip."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Highlight Styles."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Animated Shape Dividers."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Mouse Move Effect."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Fluid Background."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Background Effects."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Engage Visitors, Drive Results"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Turn your website into a lead-generation machine and keep your audience engaged."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Gutenverse Form."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Gutenverse Popup."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Gutenverse News."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Why Upgrade to PRO?"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+msgid "With Gutenverse PRO, you're not just unlocking extra features—you're unlocking freedom. Freedom to design faster. Freedom to be more creative. Freedom to engage your audience at a whole new level."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Ready to take your website to the next stage?"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+msgid "Work Faster"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Limitless Design"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Engage Result"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Upgrade PRO"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Back"
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+#: assets/js/gutenverse-theme-wizard.js:1
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Next"
 msgstr ""
 
-#: assets/js/wizard.js:1
-msgid "Upgrade License"
-msgstr ""
-
-#: assets/js/wizard.js:1
-msgid "Currently Used"
-msgstr ""
-
-#: assets/js/wizard.js:1
-msgid "Switch Template"
-msgstr ""
-
-#: assets/js/wizard.js:1
-msgid "Import Demo"
-msgstr ""
-
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
 msgid "Importing “Home” demo in progress..."
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
 msgid "Import: Demo Home...."
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Important Notice"
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Please do not refresh or close the page while importing data is in progress."
 msgstr ""
 
-#: assets/js/wizard.js:1
-msgid "Install Demo Completed"
+#: assets/js/companion.js:2
+msgid "Import Demo Completed"
 msgstr ""
 
-#: assets/js/wizard.js:1
-msgid "All Demo is successfully imported!"
-msgstr ""
-
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Close"
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+msgid "View Site"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Completed"
 msgstr ""
 
-#: assets/js/wizard.js:1
-msgid "Choose Prebuilt Templates"
+#: assets/js/companion.js:2
+msgid "Here’s what will be installed and imported:"
 msgstr ""
 
-#: assets/js/wizard.js:1
-msgid "Discover a wide selection of themes, each carefully crafted to meet the unique needs of your website. Whether you're building a blog, portfolio, or business site."
+#: assets/js/companion.js:2
+msgid "Are you sure you want to switch demos?"
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+msgid "Yes, I want to switch the demo"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Upgrade License"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Active"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Switch Demo"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Import Demo"
+msgstr ""
+
+#: assets/js/companion.js:2
 msgid "PRO"
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+msgid "Currently Active"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Library Server Down. Please try again later."
+msgstr ""
+
+#: assets/js/companion.js:2
 msgid "View Demo"
 msgstr ""
 
-#: assets/js/wizard.js:1
-msgid "Skip"
+#: assets/js/companion.js:2
+msgid "Importing \"%s\" demo in progress..."
 msgstr ""
 
-#: assets/js/wizard.js:1
-msgid "Choose Template"
+#: assets/js/companion.js:2
+msgid "Choose Prebuilt Demo"
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+msgid "Discover a wide selection of themes, each carefully crafted to meet the unique needs of your website. Whether you're building a blog, portfolio, or business site."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "No Results Found!"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "It seems we can’t find any results based on your search."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Choose Later"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Choose Demo"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Upgrade Your Site"
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Finalizing"
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Congratulations All Set 🤩"
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
 msgid "This theme is built with Gutenverse, a powerful and lightweight Gutenberg blocks and page builder plugin for the WordPress Site Editor."
 msgstr ""
 
-#: assets/js/wizard.js:1
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Visit Dashboard"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Thank You For "
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Choosing "
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "To get started, be sure to check out the "
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Documentation"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Importing the demo and style takes only one click. It is easily customizable."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Site Settings"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Control your site’s design and identity settings in one simple place."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Any Questions?"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Our support team is ready to help you with any questions or problems."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Ask For Support"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Build Your Website "
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Faster and Easier"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Quickly launch beautiful websites with just a few clicks."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Start Creating"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Upgrade To "
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Gutenverse PRO"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Unlock the WordPress Editor's potential with Gutenverse PRO."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Thank You For Subscribing Our Newsletter"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "We will inform you about updates, new features, and other infos related to Gutenverse."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Subcsribed"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Join Our Newsletter"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Stay ahead of the curve. Be the first to get exclusive updates on new Gutenverse features"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Your Email"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Subcsribe"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "there is an error requesting subscription."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "please use a valid email address format."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "please input an email address."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Click to upload "
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid " or drag and drop"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Suggested max. file size : 1MB"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Global Styles"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "You can find these global style settings inside the editor."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Global Colors"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Explore the unlimited possibilities of Gutenberg and Full Site Editing using Gutenverse."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Settings Colors"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Global Fonts"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Settings Fonts"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Site Name"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Start branding by giving your website a unique name."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Your site name..."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Site Description"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "This description can help the website appear in relevant search results."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Your site description..."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Logo Favicon"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Set icons for browser tabs. Recommended size: 80 pixels x 80 pixels."
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Settings Shortcuts"
+msgstr ""
+
+#: assets/js/companion.js:2
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Save Changes"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Effortlessly build and customize high-performance websites for any purpose—all in one platform."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Reward For"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid " Referral"
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Spread the words and get a reward from us."
+msgstr ""
+
+#: assets/js/companion.js:2
+msgid "Join Our Referal."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Install Required Plugins"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "To access the full range of theme features, please install and activate the required plugins. Your enhanced user experience is just a few steps away!"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Installed & Activated"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Get "
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Unlock "
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "1000+"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid " Template Library"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "50+"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid " Premium Niche Themes"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "100+"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid " Advanced Blocks"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid " Icons Selector"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "With"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid " Gutenverse PRO"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid " you're not just unlocking extra features—you're unlocking freedom. Freedom to design faster. Freedom to be more creative. Freedom to engage your audience at a whole new level."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Import Prebuilt Pages"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "All Pages Imported"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Import All Pages"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Some pages are marked as "
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "“Page Already Exists”"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid " because you already have a page with the same slug."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "To import it again, rename the existing page’s slug first, then re-import it from "
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Theme Dashboard → Import Pages"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Imported"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Page Already Exists"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Import Page"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "View Page"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Import Mode"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Choose how demo pages should be imported into your site. This option lets you decide whether existing pages will be replaced or kept during the import process."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Please select an "
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid " before importing pages."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Replace existing demo content"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "All demo pages, patterns and content with the same slug, will be replaced on your site."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Existing pages with the same slug will be overwritten"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Ideal for new sites or when you haven't customized content yet"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Best option for a clean Pro experience"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "No manual cleanup required"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Keep existing content"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "All demo pages, patterns and content with the same slug already exists, it will be skipped & not imported."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Your existing pages will be kept and won't be replaced"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Best if you've already edited or customized your site"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Some Pro demo pages may not be imported"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Manual import may be required later"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Importing “Home” page in progress..."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Import: Page Home...."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Install Page Completed"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "All Page is successfully imported!"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Select the options below to import this template:"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Full Import"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Import page and menu for this template."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Import Without Menu"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Import page for this template, without menu."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Start Import"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Plugin Requirements"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Import Content"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Import Pages"
+msgstr ""
+
+#: assets/js/notices.js:1
+msgid "Please Update Your Theme."
+msgstr ""
+
+#: assets/js/notices.js:1
+msgid "You're currently using an older version of the theme."
+msgstr ""
+
+#: assets/js/notices.js:1
+msgid "We recommend updating to the latest version to ensure full compatibility with the current version of Gutenverse. Using an outdated theme alongside a newer Gutenverse version may cause conflicts or issues on your site."
 msgstr ""

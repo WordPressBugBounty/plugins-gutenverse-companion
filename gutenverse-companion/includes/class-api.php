@@ -15,8 +15,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use WP_Error;
 use WP_Query;
+use WP_REST_Request;
 use WP_REST_Response;
 use ZipArchive;
+use Automatic_Upgrader_Skin;
+use stdClass;
+use Theme_Upgrader;
 
 /**
  * Class Api
@@ -67,6 +71,7 @@ class Api {
 		/**
 		 * Backend routes.
 		 */
+
 		register_rest_route(
 			self::ENDPOINT,
 			'demo/get',
@@ -93,6 +98,26 @@ class Api {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'demo_import' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new \WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'default/import',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'default_import' ),
 				'permission_callback' => function () {
 					if ( ! current_user_can( 'manage_options' ) ) {
 						return new \WP_Error(
@@ -226,6 +251,326 @@ class Api {
 				},
 			)
 		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'demo/remove',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'remove_previous_demo_data' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new \WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'save/site-settings',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'save_site_settings' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) && current_user_can( 'upload_files' ) ) {
+						return new \WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'get/site-settings',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'get_site_settings' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new \WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'check/library-down',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'is_site_down' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new \WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'library/install-activate-theme',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'install_and_activate_theme_by_slug' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new \WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+	}
+
+	/**
+	 * Check Library Site is Down.
+	 *
+	 * @return bool True if the site is down or returns an error, false otherwise.
+	 */
+	public function is_site_down() {
+		$url = GUTENVERSE_COMPANION_LIBRARY_URL;
+		$ch  = curl_init( $url );
+
+		curl_setopt( $ch, CURLOPT_NOBODY, true );            // Use HEAD request
+		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );    // Don't output the response
+		curl_setopt( $ch, CURLOPT_TIMEOUT, 5 );              // Timeout in seconds
+		curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, true );    // Follow redirects
+
+		curl_exec( $ch );
+		$http_code  = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+		$curl_error = curl_errno( $ch );
+
+		curl_close( $ch );
+
+		if ( $curl_error || $http_code >= 400 ) {
+			return new WP_REST_Response(
+				array(
+					'message' => 'Server Down',
+				),
+				500
+			);
+		} else {
+			return new WP_REST_Response(
+				array(
+					'message' => 'Server Online',
+				),
+				200
+			);
+		}
+	}
+
+	/**
+	 * Get Site Settings
+	 */
+	public function get_site_settings() {
+		$logo_id  = get_theme_mod( 'custom_logo' );
+		$logo_url = null;
+		if ( $logo_id ) {
+			$logo_url = wp_get_attachment_image_url( $logo_id, 'full' );
+		}
+		$site_icon_id = get_option( 'site_icon' );
+		$favicon_url  = null;
+		if ( $site_icon_id ) {
+			$favicon_url = wp_get_attachment_image_url( $site_icon_id, 'full' );
+		}
+		return new WP_REST_Response(
+			array(
+				'site_logo'    => $logo_url,
+				'site_favicon' => $favicon_url,
+				'site_name'    => get_option( 'blogname' ),
+				'site_desc'    => get_option( 'blogdescription' ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Check image tyep
+	 */
+	private function is_valid_image_type( $file ) {
+		// Define a list of accepted MIME types for site logos and favicons.
+		$allowed_mime_types = array(
+			'image/jpeg',
+			'image/png',
+			'image/gif',
+			'image/svg+xml',
+		);
+
+		return in_array( $file['type'], $allowed_mime_types );
+	}
+
+	/**
+	 * Handles saving site settings, including name, description, logo, and favicon.
+	 *
+	 * @param WP_REST_Request $request The REST API request object.
+	 * @return WP_REST_Response The REST API response.
+	 */
+	public function save_site_settings( WP_REST_Request $request ) {
+		/**Change Site name and description */
+		$site_name     = sanitize_text_field( $request->get_param( 'site_name' ) );
+		$site_desc     = sanitize_text_field( $request->get_param( 'site_desc' ) );
+		$favicon_param = sanitize_text_field( $request->get_param( 'site_favicon' ) );
+		$logo_param    = sanitize_text_field( $request->get_param( 'site_logo' ) );
+
+		if ( ! empty( $site_name ) && '' !== $site_name ) {
+			update_option( 'blogname', $site_name );
+		}
+
+		if ( ! empty( $site_desc ) && '' !== $site_name ) {
+			update_option( 'blogdescription', $site_desc );
+		}
+
+		/**Change Site Logo */
+		$logo = ! empty( $_FILES['site_logo'] ) ? $_FILES['site_logo'] : false;
+		if ( $logo ) {
+			// First, validate the file type.
+			if ( ! $this->is_valid_image_type( $logo ) ) {
+				return new WP_REST_Response(
+					array(
+						'message' => 'Invalid file type for site logo. Only JPG, PNG, GIF, and SVG are allowed.',
+					),
+					400
+				);
+			}
+
+			$logo_upload = $this->upload_image_by_file( $logo );
+			if ( ! $logo_upload ) {
+				return new WP_REST_Response(
+					array(
+						'message' => 'Unable to Change Site Settings: Uploading Logo Failed!',
+					),
+					400
+				);
+			}
+			set_theme_mod( 'custom_logo', $logo_upload['id'] );
+		}
+
+		/**Change Site FavIcon */
+		$favicon = ! empty( $_FILES['site_favicon'] ) ? $_FILES['site_favicon'] : false;
+		if ( $favicon ) {
+			// First, validate the file type.
+			if ( ! $this->is_valid_image_type( $favicon ) ) {
+				return new WP_REST_Response(
+					array(
+						'message' => 'Invalid file type for site favicon. Only JPG, PNG, GIF, and SVG are allowed.',
+					),
+					400
+				);
+			}
+
+			$favicon_upload = $this->upload_image_by_file( $favicon );
+			if ( ! $favicon_upload ) {
+				return new WP_REST_Response(
+					array(
+						'message' => 'Unable to Change Site Settings: Uploading FavIcon Failed!',
+					),
+					400
+				);
+			}
+			update_option( 'site_icon', $favicon_upload['id'] );
+		}
+
+		if ( 'empty' === $favicon_param ) {
+			update_option( 'site_icon', '' );
+		}
+
+		if ( 'empty' === $logo_param ) {
+			set_theme_mod( 'custom_logo', '' );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'site_logo'    => isset( $logo_upload ) ? $logo_upload['url'] : '',
+				'site_favicon' => isset( $favicon_upload ) ? $favicon_upload['url'] : '',
+				'site_name'    => get_option( 'blogname' ),
+				'site_desc'    => get_option( 'blogdescription' ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Check File Upload Permission
+	 *
+	 * @param mixed $file .
+	 * @return boolean
+	 */
+	public function check_file_permission( $file ) {
+		/** Limit file type by MIME */
+		$allowed_mimes = array( 'image/jpeg', 'image/png', 'image/jpg', 'image/svg' );
+		if ( ! in_array( $file['type'], $allowed_mimes ) ) {
+			return false;
+		}
+
+		/** Limit file size (e.g. 1MB) */
+		$max_size = 1 * 1024 * 1024;
+		if ( $file['size'] > $max_size ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Return image
+	 *
+	 * @param string $url Image attachment url.
+	 *
+	 * @return array|null
+	 */
+	public function check_image_exist( $url ) {
+		$attachments = new \WP_Query(
+			array(
+				'post_type'      => 'attachment',
+				'post_status'    => 'inherit',
+				'meta_query'     => array(
+					array(
+						'key'     => '_import_source',
+						'value'   => $url,
+						'compare' => '=',
+					),
+				),
+				'posts_per_page' => 1,
+			)
+		);
+
+		if ( $attachments->have_posts() ) {
+			$post = $attachments->posts[0];
+			return array(
+				'id'  => $post->ID,
+				'url' => wp_get_attachment_url( $post->ID ),
+			);
+		}
+
+		return false;
 	}
 
 	/**
@@ -244,39 +589,6 @@ class Api {
 		return $data;
 	}
 
-	/**
-	 * Return image
-	 *
-	 * @param string $url Image attachment url.
-	 *
-	 * @return array|null
-	 */
-	public function check_image_exist( $url ) {
-		$attachments = new \WP_Query(
-			array(
-				'post_type'   => 'attachment',
-				'post_status' => 'inherit',
-				'meta_query'  => array(
-					array(
-						'key'     => '_import_source',
-						'value'   => $url,
-						'compare' => 'LIKE',
-					),
-				),
-			)
-		);
-
-		foreach ( $attachments->posts as $post ) {
-			$attachment_url = wp_get_attachment_url( $post->ID );
-			return array(
-				'id'  => $post->ID,
-				'url' => $attachment_url,
-			);
-		}
-
-		return $attachments->posts;
-	}
-
 
 	/**
 	 * Import an image into the media library
@@ -285,14 +597,87 @@ class Api {
 	 * @return array|null
 	 */
 	public function import_image( $url ) {
-		$response = wp_remote_get( $url );
+		$upload = $this->upload_image( $url );
+		if ( ! $upload ) {
+			return null;
+		}
+		$attach_id = $upload['id'];
 
+		add_post_meta( $attach_id, '_import_source', $url, true );
+
+		$imported_options = get_option( 'gutenverse-companion-imported-options' );
+		if ( $imported_options ) {
+			$imported_media            = $imported_options['media'] ?? array();
+			$imported_media[]          = $attach_id;
+			$imported_options['media'] = $imported_media;
+			update_option( 'gutenverse-companion-imported-options', $imported_options );
+		}
+
+		return array(
+			'id'  => $attach_id,
+			'url' => $upload['url'],
+		);
+	}
+
+	/**
+	 * Upload Image by file
+	 *
+	 * @param mixed $file .
+	 * @return array||null
+	 */
+	public function upload_image_by_file( $file ) {
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/media.php';
+		require_once ABSPATH . 'wp-admin/includes/image.php';
+
+		$original_name = sanitize_file_name( $file['name'] );
+		$new_name      = 'site-image-' . time() . '-' . $original_name;
+		$file['name']  = $new_name;
+
+		$check_permission = $this->check_file_permission( $file );
+		if ( ! $check_permission ) {
+			return null;
+		}
+
+		$upload = wp_handle_upload( $file, array( 'test_form' => false ) );
+		if ( isset( $upload['error'] ) ) {
+			return null;
+		}
+
+		$attachment = array(
+			'post_mime_type' => $upload['type'],
+			'post_title'     => basename( $upload['file'] ),
+			'post_status'    => 'inherit',
+		);
+
+		$attach_id = wp_insert_attachment( $attachment, $upload['file'] );
+
+		if ( is_wp_error( $attach_id ) ) {
+			return null;
+		}
+		wp_update_attachment_metadata( $attach_id, wp_generate_attachment_metadata( $attach_id, $upload['file'] ) );
+
+		return array(
+			'id'  => $attach_id,
+			'url' => wp_get_attachment_url( $attach_id ),
+		);
+	}
+
+	/**
+	 * Upload Image
+	 *
+	 * @param string $url Image URL to import.
+	 * @return array|null
+	 */
+	public function upload_image( $url ) {
+		$response = wp_remote_get( $url );
 		if ( is_wp_error( $response ) ) {
 			return null;
 		}
 
 		$image_data = wp_remote_retrieve_body( $response );
-		$filename   = basename( $url );
+
+		$filename = basename( $url );
 
 		$upload = wp_upload_bits( $filename, null, $image_data );
 
@@ -314,17 +699,6 @@ class Api {
 
 		$attach_data = wp_generate_attachment_metadata( $attach_id, $upload['file'] );
 		wp_update_attachment_metadata( $attach_id, $attach_data );
-
-		add_post_meta( $attach_id, '_import_source', $url, true );
-
-		$imported_options = get_option( 'gutenverse-companion-imported-options' );
-		if ( $imported_options ) {
-			$imported_media            = $imported_options['media'];
-			$imported_media[]          = $attach_id;
-			$imported_options['media'] = $imported_media;
-			update_option( 'gutenverse-companion-imported-options', $imported_options );
-		}
-
 		return array(
 			'id'  => $attach_id,
 			'url' => $upload['url'],
@@ -342,9 +716,11 @@ class Api {
 
 		$upload_dir = wp_upload_dir();
 		$target_dir = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' );
+		$target_url = trailingslashit( $upload_dir['baseurl'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' );
 		$this->assign_templates( $target_dir, $pattern );
 		$this->assign_parts( $target_dir, $pattern );
 		$this->set_global_fonts( $target_dir );
+		$this->set_global_color( $target_dir, $target_url );
 
 		return update_option(
 			'gutenverse_companion_template_options',
@@ -395,6 +771,7 @@ class Api {
 				}
 
 				$target_file_path = trailingslashit( $target_template_dir ) . $file_name;
+				$content          = str_replace( "\'", "'", $content );
 				$wp_filesystem->put_contents( $target_file_path, $content );
 
 			}
@@ -439,6 +816,7 @@ class Api {
 				}
 
 				$target_file_path = trailingslashit( $target_parts_dir ) . $file_name;
+				$content          = str_replace( "\'", "'", $content );
 				$wp_filesystem->put_contents( $target_file_path, $content );
 
 			}
@@ -451,23 +829,158 @@ class Api {
 	 * @param string $target_dir .
 	 */
 	public function set_global_fonts( $target_dir ) {
-		$font_dir      = $target_dir . '/demo/global/font.json';
-		$fonts_options = get_option( 'gutenverse-global-variable-font-' . get_stylesheet(), array() );
+		$font_dir = $target_dir . '/demo/global/font.json';
 		if ( file_exists( $font_dir ) ) {
-			$json_content = file_get_contents( $font_dir );
-			$fonts        = json_decode( $json_content, true );
+			$json_content  = file_get_contents( $font_dir );
+			$fonts         = json_decode( $json_content, true );
+			$fonts_options = array();
+			$google_fonts  = array();
 			foreach ( $fonts as $font ) {
-				$existing_ids = array_column( $fonts_options, 'id' );
-
-				if ( ! in_array( $font['id'], $existing_ids, true ) ) {
-					$fonts_options[] = array(
-						'id'   => $font['id'],
-						'name' => $font['name'],
-						'font' => $font['font'],
+				$fonts_options[] = array(
+					'id'   => $font['id'],
+					'name' => $font['name'],
+					'font' => $font['font'],
+				);
+				if ( isset( $font['font'] ) && ! empty( $font['font'] ) && 'google' === $font['font']['font']['type'] ) {
+					$google_fonts[] = array(
+						'label'  => $font['font']['font']['label'],
+						'type'   => $font['font']['font']['type'],
+						'value'  => $font['font']['font']['value'],
+						'weight' => $font['font']['weight'],
 					);
 				}
 			}
 			update_option( 'gutenverse-global-variable-font-' . get_stylesheet(), $fonts_options );
+			update_option( 'gutenverse-global-variable-google-' . get_stylesheet(), $google_fonts );
+		}
+	}
+
+	/**
+	 * Set Global Color
+	 *
+	 * @param string $target_dir .
+	 * @param string $target_url .
+	 */
+	public function set_global_color( $target_dir, $target_url ) {
+		$global_path = $target_dir . '/demo/global/';
+		if ( file_exists( $global_path . 'color.json' ) ) {
+			$json_content = file_get_contents( $global_path . 'color.json' );
+			$colors       = json_decode( $json_content, true );
+			$style_color  = array();
+			foreach ( $colors as $color ) {
+				$formated_color = array(
+					'slug'  => $color['slug'],
+					'id'    => $color['slug'],
+					'color' => $color['color'],
+					'name'  => $color['name'],
+					'type'  => 'theme',
+				);
+				array_push( $style_color, $formated_color );
+			}
+
+			$theme = wp_get_theme()->get_stylesheet();
+			// Try to get existing global styles post.
+			$global_styles = get_page_by_path( sprintf( 'wp-global-styles-%s', urlencode( $theme ) ), OBJECT, 'wp_global_styles' );
+
+			if ( ! $global_styles ) {
+				// Create global styles post.
+				$global_styles_id = wp_insert_post(
+					array(
+						'post_type'    => 'wp_global_styles',
+						'post_title'   => 'Custom Styles',
+						'post_name'    => sprintf( 'wp-global-styles-%s', urlencode( $theme ) ),
+						'post_status'  => 'publish',
+						'post_content' => '',
+						'post_excerpt' => $theme,
+					)
+				);
+
+				// Assign wp_theme taxonomy term to associate with your theme.
+				if ( ! is_wp_error( $global_styles_id ) ) {
+					wp_set_object_terms( $global_styles_id, $theme, 'wp_theme' );
+				}
+			} else {
+				$global_styles_id = $global_styles->ID;
+			}
+			$layout         = array(
+				'contentSize' => '100%',
+				'wideSize'    => '100%',
+			);
+			$spacing        = array(
+				'blockGap' => '1.2rem',
+			);
+			$new_typography = new stdClass();
+			if ( file_exists( $global_path . 'additional.json' ) ) {
+				$json_content       = file_get_contents( $global_path . 'additional.json' );
+				$additional_globals = json_decode( $json_content, true );
+				$layout             = array(
+					'contentSize' => $additional_globals['contentSize'],
+					'wideSize'    => $additional_globals['wideSize'],
+				);
+				$spacing            = $additional_globals['spacing'];
+				$color_style        = $additional_globals['color_style'];
+				$element_style      = $additional_globals['elements_style'];
+				$typography         = $additional_globals['fontSettings'];
+				$typography_string  = wp_json_encode(
+					array(
+						'fontFamilies'   => array(
+							'theme' => $typography,
+						),
+						'customFontSize' => true,
+						'fontSizes'      => array(),
+					)
+				);
+				$font_data_path     = $target_dir . '/demo/misc/additional-font.json';
+				if ( file_exists( $font_data_path ) ) {
+					$font_data_json_content = file_get_contents( $font_data_path );
+					$demo_font_data         = json_decode( $font_data_json_content, true );
+					foreach ( $demo_font_data as $key => $demo_font ) {
+						$font_placeholder  = '{{font:' . $key . ':url}}';
+						$font_url          = $target_url . '/demo/assets/fonts/' . $demo_font;
+						$typography_string = str_replace( $font_placeholder, $font_url, $typography_string );
+					}
+				}
+				$new_typography = json_decode( $typography_string );
+				if ( $new_typography ) {
+					// Use theme fonts instead of custom.
+					$new_fonts = $new_typography->fontFamilies->theme; // phpcs:ignore
+
+					foreach ( $new_fonts as &$n_font ) {
+						// Remove or escape quotes inside fontFamily
+						$n_font->fontFamily = str_replace( '"', '', $n_font->fontFamily ); // phpcs:ignore
+
+						foreach ( $n_font->fontFace as &$n_face ) { // phpcs:ignore
+							$n_face->fontFamily = str_replace( '"', '', $n_face->fontFamily );// phpcs:ignore
+						}
+					}
+				}
+			}
+
+			$style_json = array(
+				'version'                     => 3,
+				'isGlobalStylesUserThemeJSON' => true,
+				'settings'                    => array(
+					'color'      => array(
+						'palette' => array(
+							'theme' => $style_color,
+						),
+					),
+					'layout'     => $layout,
+					'typography' => $new_typography,
+				),
+				'styles'                      => array(
+					'spacing'  => $spacing,
+					'color'    => $color_style ? $color_style : array(),
+					'elements' => $element_style ? $element_style : array(),
+				),
+			);
+			wp_update_post(
+				array(
+					'ID'           => $global_styles_id,
+					'post_content' => wp_json_encode( $style_json ),
+				)
+			);
+			wp_clean_theme_json_cache();
 		}
 	}
 
@@ -496,9 +1009,11 @@ class Api {
 
 		$target_dir = $target_dir . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' ) . '/';
 
-		if ( ! $wp_filesystem->is_dir( $target_dir ) ) {
-			$wp_filesystem->mkdir( $target_dir );
+		if ( $wp_filesystem->is_dir( $target_dir ) ) {
+			$wp_filesystem->delete( $target_dir, true );
 		}
+
+		$wp_filesystem->mkdir( $target_dir );
 
 		$target_dir = $target_dir . 'demo/';
 
@@ -551,6 +1066,116 @@ class Api {
 	 *
 	 * @param object $request .
 	 */
+	public function default_import( $request ) {
+		$active = sanitize_text_field( $request->get_param( 'active' ) );
+
+		if ( $active ) {
+			$this->get_companion_global_color();
+		}
+
+		$active_theme      = wp_get_theme();
+		$active_theme_name = str_replace( ' ', '_', $active_theme->get( 'Name' ) );
+		$class_name        = $active_theme_name . '\\Init';
+		$class_instance    = $class_name::instance();
+		$fonts             = $class_instance->default_font_variable();
+
+		$fonts_options = get_option( 'gutenverse-global-variable-font-' . get_stylesheet(), array() );
+		foreach ( $fonts as $font ) {
+			$fonts_options[] = array(
+				'id'   => $font['id'],
+				'name' => $font['name'],
+				'font' => $font['font'],
+			);
+		}
+		update_option( 'gutenverse-global-variable-font-' . get_stylesheet(), $fonts_options );
+
+		/**Get Color Data */
+		$theme_dir = $active_theme->get_stylesheet_directory();
+
+		global $wp_filesystem;
+
+		if ( empty( $wp_filesystem ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+			WP_Filesystem();
+		}
+
+		$json_file_path = $theme_dir . '/theme.json';
+		$json_data      = $wp_filesystem->get_contents( $json_file_path );
+
+		/** Decode the JSON data into a PHP array */
+		$json_data_decode = json_decode( $json_data, true );
+		$colors           = $json_data_decode['settings']['color']['palette'];
+		$style_color      = array();
+		foreach ( $colors as $color ) {
+			$formated_color = array(
+				'slug'  => $color['slug'],
+				'id'    => $color['slug'],
+				'color' => $color['color'],
+				'name'  => $color['name'],
+				'type'  => 'theme',
+			);
+			array_push( $style_color, $formated_color );
+		}
+		$theme         = wp_get_theme()->get_stylesheet();
+		$global_styles = get_page_by_path( sprintf( 'wp-global-styles-%s', urlencode( $theme ) ), OBJECT, 'wp_global_styles' );
+
+		if ( ! $global_styles ) {
+			// Create global styles post.
+			$global_styles_id = wp_insert_post(
+				array(
+					'post_type'    => 'wp_global_styles',
+					'post_title'   => 'Custom Styles',
+					'post_name'    => sprintf( 'wp-global-styles-%s', urlencode( $theme ) ),
+					'post_status'  => 'publish',
+					'post_content' => '',
+					'post_excerpt' => $theme,
+				)
+			);
+
+			// Assign wp_theme taxonomy term to associate with your theme.
+			if ( ! is_wp_error( $global_styles_id ) ) {
+				wp_set_object_terms( $global_styles_id, $theme, 'wp_theme' );
+			}
+		} else {
+			$global_styles_id = $global_styles->ID;
+		}
+
+		$style_json = array(
+			'version'                     => 3,
+			'isGlobalStylesUserThemeJSON' => true,
+			'settings'                    => array(
+				'color' => array(
+					'palette' => array(
+						'theme' => $style_color,
+					),
+				),
+			),
+		);
+
+		wp_update_post(
+			array(
+				'ID'           => $global_styles_id,
+				'post_content' => wp_json_encode( $style_json ),
+			)
+		);
+		wp_clean_theme_json_cache();
+
+		$this->remove_previous_demo_data();
+
+		delete_option( 'gutenverse_companion_template_options' );
+		delete_option( 'gutenverse-companion-imported-options' );
+		return new WP_REST_Response(
+			array(
+				'message' => 'success',
+			),
+			200
+		);
+	}
+	/**
+	 * Import Demo
+	 *
+	 * @param object $request .
+	 */
 	public function demo_import( $request ) {
 		$name      = sanitize_text_field( $request->get_param( 'name' ) );
 		$demo_id   = sanitize_text_field( $request->get_param( 'demo_id' ) );
@@ -567,10 +1192,11 @@ class Api {
 			array(
 				'demo_id' => $demo_id,
 				'key'     => $key,
+				'theme'   => wp_get_theme()->get_template(),
 			)
 		);
 		$response        = wp_remote_post(
-			GUTENVERSE_COMPANION_LIBRARY_URL . 'wp-json/gutenverse-server/v4/companion/demo',
+			GUTENVERSE_COMPANION_LIBRARY_URL . '/wp-json/gutenverse-server/v4/companion/demo',
 			array(
 				'body'    => $request_body,
 				'headers' => array(
@@ -589,7 +1215,6 @@ class Api {
 				400
 			);
 		}
-		$this->remove_previous_demo_data( $name );
 		$file          = json_decode( wp_remote_retrieve_body( $response ) );
 		$imported_data = array(
 			'demo_name' => $name,
@@ -601,26 +1226,96 @@ class Api {
 
 	/**
 	 * Removing Previous Demo Data
-	 *
-	 * @param string $name .
 	 */
-	public function remove_previous_demo_data( $name ) {
+	public function remove_previous_demo_data() {
 		$imported_options = get_option( 'gutenverse-companion-imported-options' );
+		if ( $imported_options ) {
+			/**Removing data */
+			if ( isset( $imported_options['pages'] ) ) {
+				$this->delete_posts( $imported_options['pages'], 'post' );
+			}
+			if ( isset( $imported_options['patterns'] ) ) {
+				$this->delete_posts( $imported_options['patterns'], 'post' );
+			}
+			if ( isset( $imported_options['media'] ) ) {
+				$this->delete_posts( $imported_options['media'], 'media' );
+			}
+			if ( isset( $imported_options['menus'] ) ) {
+				$this->delete_posts( $imported_options['menus'], 'menu' );
+			}
 
-		/**Removing data */
-		$this->delete_posts( $imported_options['pages'], 'post' );
-		$this->delete_posts( $imported_options['patterns'], 'post' );
-		$this->delete_posts( $imported_options['media'], 'post' );
+			/**Removing saved template part and template */
+			$upload_dir          = wp_upload_dir();
+			$target_dir          = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $imported_options['demo_name'] ) ), '-' );
+			$source_template_dir = $target_dir . '/demo/templates';
+			$source_parts_dir    = $target_dir . '/demo/parts';
 
-		/**Removing saved template part and template */
-		$upload_dir          = wp_upload_dir();
-		$target_dir          = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' );
-		$source_template_dir = $target_dir . '/demo/templates';
-		$source_parts_dir    = $target_dir . '/demo/parts';
+			/**Removing template */
+			$this->delete_template_and_parts( $source_template_dir, 'wp_template' );
+			$this->delete_template_and_parts( $source_parts_dir, 'wp_template_part' );
+			$this->delete_generated_css_switch_theme();
 
-		/**Removing template */
-		$this->delete_template_and_parts( $source_template_dir, 'wp_template' );
-		$this->delete_template_and_parts( $source_parts_dir, 'wp_template_part' );
+			/**Removing Demo Folder */
+			global $wp_filesystem;
+
+			if ( ! function_exists( 'request_filesystem_credentials' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/file.php';
+			}
+			if ( $wp_filesystem->is_dir( $target_dir ) ) {
+				$wp_filesystem->rmdir( $target_dir, true );
+			}
+
+			return new WP_REST_Response(
+				array(
+					'message' => 'Success Removing Previous Demo Data',
+				),
+				200
+			);
+		}
+		return new WP_REST_Response(
+			array(
+				'message' => 'There is no previous demo data to remove.',
+			),
+			400
+		);
+	}
+
+	/**
+	 * Delete Generated CSS when Switching Theme
+	 */
+	public function delete_generated_css_switch_theme() {
+		delete_option( 'gutenverse-style-cache-id' );
+		$path = gutenverse_css_path();
+		$this->delete_file( $path );
+	}
+
+	/**
+	 * Delete File if not Containing String.
+	 *
+	 * @param string $folder_path Folder Path.
+	 * @param string $cache_id Cache Id.
+	 *
+	 * @return void
+	 */
+	public function delete_file( $folder_path, $cache_id = false ) {
+		if ( ! is_dir( $folder_path ) ) {
+			return;
+		}
+
+		$files = list_files( $folder_path );
+
+		foreach ( $files as $file ) {
+			if ( is_file( $file ) ) {
+				$filename = basename( $file );
+				if ( $cache_id ) {
+					if ( strpos( $filename, $cache_id ) === false ) {
+						wp_delete_file( $file );
+					}
+				} else {
+					wp_delete_file( $file );
+				}
+			}
+		}
 	}
 
 	/**
@@ -635,21 +1330,23 @@ class Api {
 		if ( ! function_exists( 'request_filesystem_credentials' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/file.php';
 		}
-		$html_files = $wp_filesystem->dirlist( $source, true );
-		foreach ( $html_files as $file_name => $file_info ) {
-			if ( 'html' === pathinfo( $file_name, PATHINFO_EXTENSION ) ) {
-				$filename       = pathinfo( $file_name, PATHINFO_FILENAME );
-				$template_posts = get_posts(
-					array(
-						'post_type'      => $post_type,
-						'name'           => $filename,
-						'posts_per_page' => 1,
-						'post_status'    => 'any',
-					)
-				);
+		if ( $wp_filesystem->is_dir( $source ) ) {
+			$html_files = $wp_filesystem->dirlist( $source, true );
+			foreach ( $html_files as $file_name => $file_info ) {
+				if ( 'html' === pathinfo( $file_name, PATHINFO_EXTENSION ) ) {
+					$filename       = pathinfo( $file_name, PATHINFO_FILENAME );
+					$template_posts = get_posts(
+						array(
+							'post_type'      => $post_type,
+							'name'           => $filename,
+							'posts_per_page' => 1,
+							'post_status'    => 'any',
+						)
+					);
 
-				if ( ! empty( $template_posts ) ) {
-					wp_delete_post( $template_posts[0]->ID, true );
+					if ( ! empty( $template_posts ) ) {
+						wp_delete_post( $template_posts[0]->ID, true );
+					}
 				}
 			}
 		}
@@ -664,6 +1361,9 @@ class Api {
 	public function delete_posts( $posts, $type = 'post' ) {
 		foreach ( $posts as $post_id ) {
 			switch ( $type ) {
+				case 'menu':
+					wp_delete_nav_menu( $post_id['created_menu_id'] );
+					break;
 				case 'media':
 					wp_delete_attachment( $post_id, true );
 					break;
@@ -716,11 +1416,20 @@ class Api {
 		if ( $companion_data ) {
 			$fetch_time = $companion_data['fetch_time'];
 		}
-		$this->update_demo_data( $request );
 
-		if ( null === $fetch_time || $fetch_time < $now ) {
-			/**Update demo data and fetch time */
-			$this->update_demo_data( $request );
+		$updated = $this->update_demo_data( $request );
+
+		/**Check if file exist */
+		if ( ! $wp_filesystem->exists( $file_path ) ) {
+			$updated = $this->update_demo_data( $request );
+			if ( ! $updated ) {
+				return new WP_REST_Response(
+					array(
+						'message' => 'Unable to fetch demo data : Server Down! Please try again later.',
+					),
+					400
+				);
+			}
 			$next_fetch = $now + ( 24 * 60 * 60 );
 			update_option(
 				'gutenverse-companion-' . urlencode( $theme->get_stylesheet() ),
@@ -730,8 +1439,24 @@ class Api {
 			);
 		}
 
-		if ( ! $wp_filesystem->exists( $file_path ) ) {
-			$this->update_demo_data( $request );
+		if ( null === $fetch_time || $fetch_time < $now ) {
+			/**Update demo data and fetch time */
+			$updated = $this->update_demo_data( $request );
+			if ( ! $updated ) {
+				return new WP_REST_Response(
+					array(
+						'message' => 'Unable to fetch demo data : Server Down! Please try again later.',
+					),
+					400
+				);
+			}
+			$next_fetch = $now + ( 24 * 60 * 60 );
+			update_option(
+				'gutenverse-companion-' . urlencode( $theme->get_stylesheet() ),
+				array(
+					'fetch_time' => $next_fetch,
+				)
+			);
 		}
 
 		$data = $this->demo_data( $request );
@@ -749,6 +1474,12 @@ class Api {
 		require_once ABSPATH . 'wp-admin/includes/file.php';
 		WP_Filesystem();
 		global $wp_filesystem;
+
+		$page    = $request->get_param( 'page' ) ?? 1;
+		$perpage = $request->get_param( 'perpage' ) ?? 12;
+
+		$filter = $request->get_param( 'filter' );
+
 		$basedir   = wp_upload_dir()['basedir'];
 		$theme     = wp_get_theme();
 		$directory = $basedir . '/gutenverse-companion/' . $theme->get_stylesheet();
@@ -765,10 +1496,8 @@ class Api {
 		}
 
 		/**Get License Tier */
-		$key      = sanitize_text_field( $request->get_param( 'key' ) );
-		$arr_tier = array(
-			'general',
-		);
+		$key  = sanitize_text_field( $request->get_param( 'key' ) );
+		$tier = 'general';
 		if ( $key ) {
 			$request_body = wp_json_encode(
 				array(
@@ -792,24 +1521,77 @@ class Api {
 				$error_message = $response->get_error_message();
 				return new WP_REST_Response(
 					array(
-						'message' => 'Unable to fetch tier license : ' . $error_message,
+						'message' => 'Unable to fetch tier license : Invalid Key or Server Down!',
 					),
 					400
 				);
 			}
-			$tier_levels = array(
-				'personal'     => array( 'general', 'personal' ),
-				'professional' => array( 'general', 'personal', 'professional' ),
-				'agency'       => array( 'general', 'personal', 'professional', 'agency' ),
-				'enterprise'   => array( 'general', 'personal', 'professional', 'agency', 'enterprise' ),
-			);
-			$tier        = json_decode( wp_remote_retrieve_body( $response ) );
-			$arr_tier    = $tier_levels[ $tier ];
+			$tier = json_decode( wp_remote_retrieve_body( $response ) );
 		}
 
+		/**Get Data for Pagination */
+		$demos = $json['demo_list'] ?? array();
+
+		$search_term     = isset( $filter['search'] ) ? strtolower( $filter['search'] ) : '';
+		$category_filter = $filter['categoryFilter'] ?? '';
+		$pro_filter      = $filter['proFilter'] ?? '';
+
+		$demo_datas = array_filter(
+			$demos,
+			function ( $demo ) use ( $search_term, $category_filter, $pro_filter ) {
+				/** Check title match */
+				if ( ! empty( $search_term ) ) {
+					if ( isset( $demo['title'] ) && stripos( $demo['title'], $search_term ) !== false ) {
+						return true;
+					}
+
+					if ( isset( $demo['categories'] ) && is_array( $demo['categories'] ) ) {
+						foreach ( $demo['categories'] as $category ) {
+							if ( stripos( $demo['categories']['slug'], $search_term ) !== false ) {
+								return true;
+							}
+						}
+					}
+
+					if ( isset( $demo['data'] ) && is_array( $demo['data'] ) ) {
+						foreach ( $demo['data'] as $category ) {
+							if (
+								stripos( $demo['data']['name'], $search_term ) !== false ||
+								stripos( $demo['data']['slug'], $search_term ) !== false ||
+								stripos( $demo['data']['overview'], $search_term ) !== false ) {
+								return true;
+							}
+						}
+					}
+
+					return false;
+				}
+				/** Check Pro/Free status */
+				if ( ! empty( $pro_filter ) && ( isset( $demo['tier'] ) && ! in_array( $pro_filter, explode( ',', $demo['tier'] ) ) ) ) {
+					return false;
+				}
+
+				/** Check category */
+				if ( $category_filter !== '' ) {
+					foreach ( $demo['categories'] as $category ) {
+						if ( $category['slug'] === $category_filter ) {
+							return true;
+						}
+					}
+					return false;
+				}
+
+				return true;
+			}
+		);
+
+		$total      = count( $demo_datas );
+		$start      = ( $page - 1 ) * $perpage;
+		$start      = $page > 1 ? $start - 1 : $start; // note: start - 1 because in the first page there is default unibiz template shown, so the paged array started + 1.
+		$paged_data = array_slice( $demo_datas, $start, $perpage );
 		/**Add status to array list */
-		if ( isset( $json['demo_list'] ) ) {
-			foreach ( $json['demo_list'] as &$demo ) {
+		if ( isset( $paged_data ) ) {
+			foreach ( $paged_data as &$demo ) {
 				$name       = $demo['title'];
 				$upload_dir = wp_upload_dir();
 				$target_dir = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' ) . '/demo';
@@ -825,22 +1607,46 @@ class Api {
 				$demo['status']['exists']         = (bool) $wp_filesystem->is_dir( $target_dir );
 				$demo['status']['using_template'] = isset( get_option( 'gutenverse_companion_template_options' )['active_demo'] ) && get_option( 'gutenverse_companion_template_options' )['active_demo'] === $name;
 				$need_upgrade                     = false;
-				if ( ! in_array( $demo['tier'], $arr_tier, false ) ) {
+				$demo_tier                        = explode( ',', $demo['tier'] );
+				if ( isset( $demo['tier'] ) && ! in_array( $tier, $demo_tier, true ) ) {
 					$need_upgrade = true;
 				}
-				$all_tier = array( 'general', 'personal', 'professional', 'agency', 'enterprise' );
-				$tier_index = array_search( $demo['tier'], $all_tier );
-				if ( $index !== false ) {
-					$tiers_after                     = array_slice( $all_tier, $tier_index + 1 );
-					$demo['status']['required_tier'] = $tiers_after;
-
-				}
-				$demo['status']['need_upgrade'] = $need_upgrade;
-
+				$phase_2                         = array( 'ultimate', 'standard', 'personal' );
+				$required_tier                   = array_values( array_diff( $demo_tier, $phase_2 ) );
+				$demo['status']['required_tier'] = $required_tier;
+				$demo['status']['need_upgrade']  = $need_upgrade;
 			}
 			unset( $demo );
 		}
-		return $json;
+
+		$theme          = wp_get_theme(); // omit slug to get current theme
+		$screenshot_url = $theme->get_screenshot();
+
+		$default_theme = array(
+			'title'      => $theme->get( 'Name' ),
+			'tier'       => 'general, basic, professional, agency, enterprise',
+			'categories' => array(),
+			'cover'      => $screenshot_url,
+			'demo_id'    => 'default',
+			'pro'        => false,
+			'status'     => array(
+				'exists'         => true,
+				'need_upgrade'   => false,
+				'required_tier'  => array( 'general', 'basic', 'professional', 'agency', 'enterprise' ),
+				'using_template' => ! isset( get_option( 'gutenverse_companion_template_options' )['active_demo'] ) || empty( get_option( 'gutenverse_companion_template_options' )['active_demo'] ),
+			),
+		);
+
+		return array(
+			'total_page'   => ceil( $total / $perpage ),
+			'total_item'   => $total,
+			'page'         => $page,
+			'per_page'     => $perpage,
+			'demo_list'    => $paged_data,
+			'theme_slug'   => $json['theme_slug'] ?? $theme->get_stylesheet(),
+			'categories'   => $json['categories'] ?? array(),
+			'default_demo' => $default_theme,
+		);
 	}
 
 	/**
@@ -852,6 +1658,29 @@ class Api {
 		$theme_slug = sanitize_text_field( $request->get_param( 'theme_slug' ) );
 		$key        = sanitize_text_field( $request->get_param( 'key' ) );
 
+		/**Fetch data */
+		$request_body = wp_json_encode(
+			array(
+				'base_theme' => $theme_slug,
+				'key'        => $key,
+			)
+		);
+		$response     = wp_remote_post(
+			GUTENVERSE_COMPANION_LIBRARY_URL . '/wp-json/gutenverse-server/v4/companion/list',
+			array(
+				'body'    => $request_body,
+				'headers' => array(
+					'Content-Type' => 'application/json',
+					'Origin'       => $request->get_header( 'origin' ),
+				),
+			)
+		);
+		if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) {
+			return false;
+		}
+
+		$response_body = wp_remote_retrieve_body( $response );
+
 		/**Check if directory exist */
 		$basedir   = wp_upload_dir()['basedir'];
 		$theme     = wp_get_theme();
@@ -861,33 +1690,12 @@ class Api {
 		}
 		$file_path = $directory . '/data.json';
 
-		/**Fetch data */
-		$request_body = wp_json_encode(
-			array(
-				'base_theme' => $theme_slug,
-				'key'        => $key,
-			)
-		);
-		$response     = wp_remote_post(
-			GUTENVERSE_COMPANION_LIBRARY_URL . 'wp-json/gutenverse-server/v4/companion/list',
-			array(
-				'body'    => $request_body,
-				'headers' => array(
-					'Content-Type' => 'application/json',
-					'Origin'       => $request->get_header( 'origin' ),
-				),
-			)
-		);
-		if ( is_wp_error( $response ) ) {
-			return new \WP_Error( 'request_failed', 'Unable to fetch demo data', array( 'status' => 500 ) );
-		}
-
-		$response_body = wp_remote_retrieve_body( $response );
 		/**Save data to json file */
 		require_once ABSPATH . 'wp-admin/includes/file.php';
 		WP_Filesystem();
 		global $wp_filesystem;
 		$wp_filesystem->put_contents( $file_path, $response_body, FS_CHMOD_FILE );
+		return true;
 	}
 
 	/**
@@ -1078,8 +1886,8 @@ class Api {
 		$demo_slug    = strtolower( str_replace( ' ', '-', $title_demo ) );
 		$pattern_list = get_option( $demo_slug . '_' . get_stylesheet() . '_companion_synced_pattern_imported', false );
 
-		$content = $this->check_navbar( $content );
-
+		$content    = $this->check_navbar( $content );
+		$content    = str_replace( "\'", "'", $content );
 		$block_data = array(
 			'post_title'   => $title,
 			'post_content' => wp_slash( $content ),
@@ -1090,7 +1898,7 @@ class Api {
 		$post_id          = wp_insert_post( $block_data );
 		$imported_options = get_option( 'gutenverse-companion-imported-options' );
 		if ( $imported_options ) {
-			$imported_patterns            = $imported_options['patterns'];
+			$imported_patterns            = $imported_options['patterns'] ?? array();
 			$imported_patterns[]          = $post_id;
 			$imported_options['patterns'] = $imported_patterns;
 			update_option( 'gutenverse-companion-imported-options', $imported_options );
@@ -1127,7 +1935,6 @@ class Api {
 		WP_Filesystem();
 
 		$name       = sanitize_text_field( $request->get_param( 'template' ) );
-		$misc       = sanitize_text_field( $request->get_param( 'misc' ) );
 		$pattern    = $request->get_param( 'pattern' );
 		$upload_dir = wp_upload_dir();
 		$target_dir = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $name ) ), '-' ) . '/demo/gutenverse-pages/';
@@ -1141,28 +1948,26 @@ class Api {
 
 		foreach ( $pages as $value ) {
 			$page_id = null;
-			$content = $value['content'];
-			$images  = $value['images'];
+			$content = $value['content'] ?? '';
+			$images  = $value['images'] ?? array();
 
 			foreach ( $pattern as $pat ) {
 				foreach ( $pat as $key => $id ) {
 					$content = str_replace( "{{{$key}}}", $id, $content );
 				}
 			}
-
 			foreach ( $images as $index => $url ) {
-				$url  = json_decode( $url );
 				$data = $this->check_image_exist( $url );
 				if ( ! $data ) {
-					$data = $this->import_image( $image );
+					$data = $this->import_image( $url );
 				}
 				$final_url   = $data['url'];
 				$placeholder = '{{{image:' . $index . ':url}}}';
 				$content     = str_replace( $placeholder, $final_url, $content );
 			}
 
-			$content = $this->check_navbar( $content );
-
+			$content  = $this->check_navbar( $content );
+			$content  = str_replace( "\'", "'", $content );
 			$new_page = array(
 				'post_title'    => $value['pagetitle'],
 				'post_content'  => wp_slash( $content ),
@@ -1171,53 +1976,10 @@ class Api {
 				'page_template' => $value['template'],
 			);
 
-			$original_title = $new_page['post_title'];
-			$suffix         = 2;
-
-			$args = array(
-				'post_type'   => 'page',
-				'post_status' => 'publish',
-				'title'       => $original_title,
-				'fields'      => 'ids',
-			);
-
-			$query = new \WP_Query( $args );
-
-			while ( $query->have_posts() ) {
-				if ( 'do-not-import' === $misc ) {
-					return true;
-				} elseif ( 'keep-a-copy' === $misc ) {
-					$new_page['post_title'] = $original_title . ' #' . $suffix;
-
-					$query = new \WP_Query(
-						array(
-							'post_type'   => 'page',
-							'post_status' => 'publish',
-							'title'       => $new_page['post_title'],
-							'fields'      => 'ids',
-						)
-					);
-
-					++$suffix;
-				} elseif ( 'replace' === $misc ) {
-					$query->the_post();
-					$post_id = get_the_ID();
-
-					wp_update_post(
-						array(
-							'ID'           => $post_id,
-							'post_content' => wp_slash( $content ),
-						)
-					);
-
-					return true;
-				}
-			}
-
 			$page_id          = wp_insert_post( $new_page );
 			$imported_options = get_option( 'gutenverse-companion-imported-options' );
 			if ( $imported_options ) {
-				$imported_page             = $imported_options['pages'];
+				$imported_page             = $imported_options['pages'] ?? array();
 				$imported_page[]           = $page_id;
 				$imported_options['pages'] = $imported_page;
 				update_option( 'gutenverse-companion-imported-options', $imported_options );
@@ -1240,11 +2002,14 @@ class Api {
 	 * @return string
 	 */
 	public function check_navbar( $content ) {
-		$html_blocks = parse_blocks( $content );
-		$blocks      = _flatten_blocks( $html_blocks );
-
+		$html_blocks      = parse_blocks( $content );
+		$blocks           = _flatten_blocks( $html_blocks );
+		$block_menus = array(
+			'gutenverse/nav-menu',
+			'gutenverse/mega-menu-item',
+		);
 		foreach ( $blocks as $block ) {
-			if ( 'gutenverse/nav-menu' === $block['blockName'] ) {
+			if ( in_array( $block['blockName'], $block_menus ) ) {
 				$block_before = serialize_block( $block );
 				$block_after  = '';
 
@@ -1265,7 +2030,7 @@ class Api {
 						);
 						$imported_options = get_option( 'gutenverse-companion-imported-options' );
 						if ( $imported_options ) {
-							$imported_menus            = $imported_options['menus'];
+							$imported_menus            = $imported_options['menus'] ?? array();
 							$imported_menus[]          = array(
 								'original_menu_id' => $original_menu_id,
 								'created_menu_id'  => $menu_id,
@@ -1313,10 +2078,6 @@ class Api {
 				$menu_exists      = wp_get_nav_menu_object( 'menu-' . $original_menu_id );
 
 				if ( $menu_exists ) {
-					/**Remove Dummy Item */
-					foreach ( $menu_items as $item ) {
-						wp_delete_post( $item->ID, true );
-					}
 
 					/**Add Actual Item */
 					$menu_id   = $menu_exists->term_id;
@@ -1342,9 +2103,9 @@ class Api {
 							$query = new WP_Query( $args );
 
 							if ( $query->have_posts() ) {
-								$page = $query->posts[0]; // Get the first result
+								$page = $query->posts[0]; // Get the first result.
 							} else {
-								$page = null; // No page found
+								$page = null; // No page found.
 							}
 
 							wp_reset_postdata();
@@ -1383,5 +2144,66 @@ class Api {
 			}
 		}
 		return true;
+	}
+	/**
+	 * Fetch Data
+	 *
+	 * @param object $request .
+	 *
+	 * @return WP_Rest
+	 */
+	public function install_and_activate_theme_by_slug( $request ) {
+		require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+		require_once ABSPATH . 'wp-admin/includes/theme.php';
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/plugin.php'; // for is_plugin_active() if needed.
+		require_once ABSPATH . 'wp-includes/theme.php';
+
+		$slug = sanitize_text_field( $request->get_param( 'slug' ) );
+		if ( empty( $slug ) ) {
+			return new WP_Error( 'no_slug', 'Theme slug is required', array( 'status' => 400 ) );
+		}
+
+		// Check if already installed.
+		$installed_themes = wp_get_themes();
+		if ( isset( $installed_themes[ $slug ] ) ) {
+			switch_theme( $slug );
+			return array(
+				'success' => true,
+				'message' => 'Theme already installed and activated',
+				'slug'    => $slug,
+			);
+		}
+
+		// Get theme info from WP.org.
+		$api = themes_api(
+			'theme_information',
+			array(
+				'slug'   => $slug,
+				'fields' => array( 'sections' => false ),
+			)
+		);
+		if ( is_wp_error( $api ) ) {
+			return new WP_Error( 'theme_api_failed', $api->get_error_message(), array( 'status' => 400 ) );
+		}
+
+		// Install theme.
+		$skin     = new Automatic_Upgrader_Skin();
+		$upgrader = new Theme_Upgrader( $skin );
+
+		$result = $upgrader->install( $api->download_link );
+		if ( is_wp_error( $result ) || ! $result ) {
+			return new WP_Error( 'install_failed', 'Theme installation failed', array( 'status' => 500 ) );
+		}
+
+		// Activate theme.
+		$theme_stylesheet = $slug;
+		switch_theme( $theme_stylesheet );
+
+		return array(
+			'success' => true,
+			'message' => 'Theme installed and activated successfully',
+			'slug'    => $slug,
+		);
 	}
 }

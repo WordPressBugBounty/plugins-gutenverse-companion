@@ -3,7 +3,7 @@ Contributors: jegstudio
 Tags: themes, basic, template, block, editor
 Tested up to: 6.7
 Requires PHP: 7.0
-Stable tag: 1.0.5
+Stable tag: 2.1.0
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -65,9 +65,21 @@ Installing Gutenverse Companion is a breeze. Follow one of the two methods below
 For additional information and assistance, please visit our extensive <a href="https://gutenverse.com/docs/" target="_blank" rel="">Documentation</a> section.
 
 == Changelog ==
+= 2.1.0 =
+* Update companion mechanism for newer themes
+
+= 2.0.2 =
+* Fix dashboard for themeforest themes
+
+= 2.0.1 =
+* Improve UI, show which current demo is active
+* Dequeue default style, when other demo is active
+
+= 2.0.0 =
+* Update companion mechanism for multipurpose themes
 
 = 1.0.5 =
-* Update companion mechanism
+* Update companion mechanism for single themes
 
 = 1.0.4 =
 * Add filter to check base theme

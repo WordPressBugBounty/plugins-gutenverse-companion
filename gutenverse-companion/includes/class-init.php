@@ -11,6 +11,7 @@ namespace Gutenverse_Companion;
 
 use Gutenverse_Companion\Essential\Init as EssentialInit;
 use Gutenverse_Companion\Gutenverse_Theme\Gutenverse_Theme;
+use Gutenverse_Companion\Lite_Plus\Lite_Plus_Theme;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
@@ -58,6 +59,13 @@ class Init {
 	public $wizard;
 
 	/**
+	 * Hold instance of lite plus theme
+	 *
+	 * @var Lite_Plus_Theme
+	 */
+	public $lite_plus_theme;
+
+	/**
 	 * Hold API Variable Instance.
 	 *
 	 * @var Api
@@ -85,6 +93,34 @@ class Init {
 		add_action( 'after_setup_theme', array( $this, 'plugin_loaded' ) );
 		add_action( 'init', array( $this, 'register_block_patterns' ), 9 );
 		add_action( 'init', array( $this, 'activating_gutenverse_theme_dashboard' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_global_scripts' ), 99 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'remove_enqueue_default_style' ), 21 );
+	}
+
+	/**
+	 * Remove Default Style when import default demo on Unibiz Theme
+	 */
+	public function remove_enqueue_default_style() {
+		$theme        = wp_get_theme(); // omit slug to get current theme
+		$demo_options = get_option( 'gutenverse-companion-imported-options', false );
+		if ( $demo_options && isset( $demo_options['demo_id'] ) && 'default' !== $demo_options['demo_id'] && 'Unibiz' === $theme->get( 'Name' ) ) {
+			wp_dequeue_style( 'unibiz-style' );
+			wp_dequeue_style( 'preset' );
+		}
+	}
+	/**
+	 * Enqueue Global Script
+	 */
+	public function enqueue_global_scripts() {
+		$include = ( include GUTENVERSE_COMPANION_DIR . '/lib/dependencies/notices.asset.php' )['dependencies'];
+
+		wp_enqueue_script(
+			'gutenverse-companion-notices',
+			GUTENVERSE_COMPANION_URL . '/assets/js/notices.js',
+			$include,
+			GUTENVERSE_COMPANION_VERSION,
+			true
+		);
 	}
 
 	/**
@@ -94,7 +130,7 @@ class Init {
 		if ( defined( 'GUTENVERSE_COMPANION_REQUIRED_VERSION' ) ) {
 			$active_plugins = get_option( 'active_plugins' );
 			$companion_ver  = null;
-			include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+			include_once ABSPATH . 'wp-admin/includes/plugin.php';
 			foreach ( $active_plugins as $plugin_path ) {
 				$slug = dirname( $plugin_path );
 				if ( 'gutenverse-companion' === $slug ) {
@@ -102,11 +138,23 @@ class Init {
 					$companion_ver = $plugin_data['Version'];
 				}
 			}
-			if ( isset( $companion_ver ) && version_compare( $companion_ver, GUTENVERSE_COMPANION_REQUIRED_VERSION, '>=' ) ) {
+			if ( $this->check_is_gutenverse_theme( $companion_ver ) ) {
 				$this->gutenverse_theme = new Gutenverse_Theme();
 			}
 		}
 	}
+
+	/**
+	 * Check if The theme is really a Gutenverse Theme (old)
+	 *
+	 * @param string $companion_ver Companion Version.
+	 *
+	 * @return bool
+	 */
+	public function check_is_gutenverse_theme( $companion_ver ) {
+		return isset( $companion_ver ) && version_compare( $companion_ver, GUTENVERSE_COMPANION_REQUIRED_VERSION, '>=' ) && ! apply_filters( 'gutenverse_companion_base_theme', false ) && ! apply_filters( 'gutenverse_wporg_plus_mechanism', false ) && ! apply_filters( 'gutenverse_pro_plus_mechanism', false ) && ! apply_filters( 'gutenverse_tp_plus_mechanism', false );
+	}
+
 
 	/**
 	 * Register Block Patterns.
@@ -130,38 +178,14 @@ class Init {
 	}
 
 	/**
-	 * Save Companion Global.
-	 *
-	 * @param integer $post_id .
-	 * @param object  $post .
-	 * @param object  $update .
-	 *
-	 * @return string
-	 */
-	public function save_companion_global( $post_id, $post, $update ) {
-		if ( 'wp_global_styles' !== $post->post_type ) {
-			return;
-		}
-
-		/** Get the saved global styles data */
-		$active_options = get_option( 'gutenverse_companion_template_options' );
-		$active_name    = $active_options['active_demo'];
-		$global_name    = 'wp-global-styles-companion-' . str_replace( ' ', '-', strtolower( $active_name ) );
-		$check_exist    = get_option( $global_name );
-
-		if ( $check_exist && $check_exist === $post->post_content ) {
-			return;
-		}
-		update_option( $global_name, $post->post_content );
-	}
-
-	/**
 	 * Change Stylesheet Directory.
 	 *
+	 * @param string $def Default Directory.
+	 *
 	 * @return string
 	 */
-	public function change_stylesheet_directory() {
-		return isset( get_option( 'gutenverse_companion_template_options' )['template_dir'] ) ? get_option( 'gutenverse_companion_template_options' )['template_dir'] : 0;
+	public function change_stylesheet_directory( $def ) {
+		return isset( get_option( 'gutenverse_companion_template_options' )['template_dir'] ) ? get_option( 'gutenverse_companion_template_options' )['template_dir'] : $def;
 	}
 
 	/**
@@ -180,44 +204,130 @@ class Init {
 		if ( apply_filters( 'jeg_theme_essential_mode_on', false ) || apply_filters( 'gutenverse_companion_essential_mode_on', false ) ) {
 			$this->essential = new EssentialInit();
 		} else {
+			global $wp_version;
+			if ( version_compare( $wp_version, '6.5', '>=' ) ) {
+				add_filter( 'gutenverse_themes_override_mechanism', array( $this, 'is_change_stylesheet_directory' ) );
+			} else {
+				add_filter( 'gutenverse_template_path', array( $this, 'template_path' ), null, 3 );
+				add_filter( 'gutenverse_themes_template', array( $this, 'add_template' ), 10, 2 );
+				add_filter( 'gutenverse_themes_override_mechanism', '__return_false', 20 );
+			}
 			add_filter( 'gutenverse_stylesheet_directory', array( $this, 'change_stylesheet_directory' ) );
-			add_filter( 'gutenverse_themes_override_mechanism', array( $this, 'is_change_stylesheet_directory' ) );
 			add_action( 'admin_enqueue_scripts', array( $this, 'dashboard_enqueue_scripts' ) );
 			add_action( 'wp_ajax_gutenverse_companion_notice_close', array( $this, 'companion_notice_close' ) );
-			add_action( 'admin_notices', array( $this, 'theme_install_notice' ) );
-			add_filter( 'wp_theme_json_data_theme', array( $this, 'add_demo_global_style' ), 9999 );
-			add_action( 'wp_insert_post', array( $this, 'save_companion_global' ), 10, 3 );
 			$this->dashboard = new Dashboard();
 		}
+		$this->lite_plus_theme = new Lite_Plus_Theme();
 	}
 
 	/**
-	 * Add custom template.
+	 * Add Template to Editor.
 	 *
-	 * @param WP_Theme_JSON_Data $theme_json Class to access and update the underlying data.
+	 * @param array $template_files Path to Template File.
+	 * @param array $template_type Template Type.
 	 *
-	 * @return \WP_Theme_JSON_Data
+	 * @return array
 	 */
-	public function add_demo_global_style( $theme_json ) {
-		if ( (bool) get_option( 'gutenverse_companion_template_options' ) && isset( get_option( 'gutenverse_companion_template_options' )['active_theme'] ) && get_option( 'gutenverse_companion_template_options' )['active_theme'] === wp_get_theme()->get_template() ) {
-			$theme_json_data = $theme_json->get_data();
+	public function add_template( $template_files, $template_type ) {
+		$dir = isset( get_option( 'gutenverse_companion_template_options' )['template_dir'] ) ? get_option( 'gutenverse_companion_template_options' )['template_dir'] : false;
 
-			$global_path = get_option( 'gutenverse_companion_template_options' )['template_dir'] . '/demo/global/';
-
-			if ( file_exists( $global_path . 'color.json' ) ) {
-				$json_content = file_get_contents( $global_path . 'color.json' );
-				$colors       = json_decode( $json_content, true );
-
-				if ( json_last_error() === JSON_ERROR_NONE ) {
-					foreach ( $colors as $color ) {
-						$theme_json_data['settings']['color']['palette'][] = $color;
-					}
+		if ( ! $dir ) {
+			return $template_files;
+		}
+		$template_files = array();
+		if ( 'wp_template' === $template_type ) {
+			$demo_template_path  = trailingslashit( $dir ) . 'templates/';
+			$demo_template_files = glob( $demo_template_path . '*.html' );
+			if ( $demo_template_files ) {
+				foreach ( $demo_template_files as $file ) {
+					$slug             = pathinfo( $file, PATHINFO_FILENAME );
+					$template_files[] = array(
+						'slug'  => $slug,
+						'path'  => $file,
+						'theme' => get_template(),
+						'type'  => 'wp_template',
+					);
 				}
 			}
-
-			$theme_json->update_with( $theme_json_data );
 		}
-		return $theme_json;
+
+		if ( 'wp_template_part' === $template_type ) {
+			$demo_part_path  = trailingslashit( $dir ) . 'parts/';
+			$demo_part_files = glob( $demo_part_path . '*.html' );
+			if ( $demo_part_files ) {
+				foreach ( $demo_part_files as $file ) {
+					$slug             = pathinfo( $file, PATHINFO_FILENAME );
+					$template_files[] = array(
+						'slug'  => $slug,
+						'path'  => $file,
+						'theme' => get_template(),
+						'type'  => 'wp_template_part',
+					);
+				}
+			}
+		}
+		return $template_files;
+	}
+
+	/**
+	 * Use gutenverse template file instead.
+	 *
+	 * @param string $template_file Path to Template File.
+	 * @param string $theme_slug Theme Slug.
+	 * @param string $template_slug Template Slug.
+	 *
+	 * @return string
+	 */
+	public function template_path( $template_file, $theme_slug, $template_slug ) {
+		$dir = isset( get_option( 'gutenverse_companion_template_options' )['template_dir'] ) ? get_option( 'gutenverse_companion_template_options' )['template_dir'] : false;
+
+		if ( ! $dir ) {
+			return $template_file;
+		}
+
+		$template_file = $this->get_template_path( $template_slug );
+
+		return $template_file;
+	}
+
+	/**
+	 * Get Template Path.
+	 *
+	 * @param string $template_slug Template Slug.
+	 *
+	 * @return string
+	 */
+	public function get_template_path( $template_slug ) {
+
+		$dir = isset( get_option( 'gutenverse_companion_template_options' )['template_dir'] ) ? get_option( 'gutenverse_companion_template_options' )['template_dir'] : false;
+
+		if ( ! $dir ) {
+			return false;
+		}
+
+		$demo_template_path  = trailingslashit( $dir ) . 'templates/';
+		$demo_template_files = glob( $demo_template_path . '*.html' );
+
+		if ( $demo_template_files ) {
+			foreach ( $demo_template_files as $file ) {
+				$slug = pathinfo( $file, PATHINFO_FILENAME );
+				if ( $template_slug === $slug ) {
+					return $file;
+				}
+			}
+		}
+
+		$demo_part_path  = trailingslashit( $dir ) . 'parts/';
+		$demo_part_files = glob( $demo_part_path . '*.html' );
+
+		if ( $demo_part_files ) {
+			foreach ( $demo_part_files as $file ) {
+				$slug = pathinfo( $file, PATHINFO_FILENAME );
+				if ( $template_slug === $slug ) {
+					return $file;
+				}
+			}
+		}
 	}
 
 	/**
@@ -239,36 +349,6 @@ class Init {
 				GUTENVERSE_COMPANION_NOTICE_VERSION,
 				true
 			);
-		}
-	}
-
-	/**
-	 * Admin Notice for page upgrade.
-	 */
-	public function theme_install_notice() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		$done = get_option( 'gutenverse-companion-base-theme-notice' );
-
-		if ( ! $done ) {
-			?>
-			<div class="notice gutenverse-upgrade-notice page-content-upgrade">
-				<div class="notice-logo">
-					<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<path d="M10 0C4.47754 0 0 4.47915 0 10C0 15.5241 4.47754 20 10 20C15.5225 20 20 15.5241 20 10C20 4.47915 15.5225 0 10 0ZM10 4.43548C10.9353 4.43548 11.6935 5.19371 11.6935 6.12903C11.6935 7.06435 10.9353 7.82258 10 7.82258C9.06468 7.82258 8.30645 7.06435 8.30645 6.12903C8.30645 5.19371 9.06468 4.43548 10 4.43548ZM12.2581 14.6774C12.2581 14.9446 12.0414 15.1613 11.7742 15.1613H8.22581C7.95859 15.1613 7.74194 14.9446 7.74194 14.6774V13.7097C7.74194 13.4425 7.95859 13.2258 8.22581 13.2258H8.70968V10.6452H8.22581C7.95859 10.6452 7.74194 10.4285 7.74194 10.1613V9.19355C7.74194 8.92633 7.95859 8.70968 8.22581 8.70968H10.8065C11.0737 8.70968 11.2903 8.92633 11.2903 9.19355V13.2258H11.7742C12.0414 13.2258 12.2581 13.4425 12.2581 13.7097V14.6774Z" fill="#FFC908"/>
-					</svg>
-				</div>
-				<div class="notice-content">
-					<h2><?php esc_html_e( 'Action Required - Install Gutenverse Theme', 'gutenverse-companion' ); ?></h2>
-					<p><?php echo esc_html__( 'Gutenverse Companion is the complementary plugin to Gutenverse theme. It adds a bunch of great features to the theme and acts as an unlocker for the Gutenverse Pro package. In order to take full advantage of all features it has to offer - please install and activate the Gutenverse theme also.', 'gutenverse-companion' ); ?></p>
-					<div class="gutenverse-companion-notice-action">
-						<a class='close-notification' href="#"><?php esc_html_e( 'Close notification', 'gutenverse-companion' ); ?></a>
-					</div>
-				</div>
-			</div>
-			<?php
 		}
 	}
 

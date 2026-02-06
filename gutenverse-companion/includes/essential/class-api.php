@@ -33,8 +33,8 @@ class Api {
 			'gutenverse-essence/v1',
 			'/gutenverse-essence-proxy',
 			array(
-				'methods'  => 'POST',
-				'callback' => array( $this, 'essence_proxy' ),
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'essence_proxy' ),
 				'permission_callback' => '__return_true',
 			)
 		);
@@ -43,9 +43,9 @@ class Api {
 	 * Essence Proxy
 	 */
 	public function essence_proxy( $request ) {
-		$url    = gutenverse_esc_data( $request->get_param( 'url' ) );
-		$body   = gutenverse_esc_data( (array) $request->get_param( 'body' ), 'array' );
-		$method = gutenverse_esc_data( $request->get_param( 'method' ) );
+		$url      = gutenverse_esc_data( $request->get_param( 'url' ) );
+		$body     = gutenverse_esc_data( (array) $request->get_param( 'body' ), 'array' );
+		$method   = gutenverse_esc_data( $request->get_param( 'method' ) );
 		$response = wp_remote_request(
 			$url,
 			array(
