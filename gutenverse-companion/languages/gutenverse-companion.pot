@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Gutenverse Companion 2.1.0\n"
+"Project-Id-Version: Gutenverse Companion 2.1.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/gutenverse-companion\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-02-04T08:31:21+00:00\n"
+"POT-Creation-Date: 2026-02-12T05:39:16+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.9.0\n"
 "X-Domain: gutenverse-companion\n"
@@ -48,6 +48,7 @@ msgstr ""
 #: includes/class-api.php:304
 #: includes/class-api.php:323
 #: includes/class-api.php:342
+#: includes/class-api.php:362
 #: includes/gutenverse-theme/class-gutenverse-theme.php:284
 #: includes/gutenverse-theme/class-gutenverse-theme.php:304
 #: includes/gutenverse-theme/class-gutenverse-theme.php:324
@@ -61,32 +62,32 @@ msgstr ""
 msgid "Forbidden Access"
 msgstr ""
 
-#: includes/class-dashboard.php:342
-#: includes/class-dashboard.php:343
+#: includes/class-dashboard.php:378
+#: includes/class-dashboard.php:379
 #: assets/js/companion.js:2
 msgid "Dashboard"
 msgstr ""
 
-#: includes/class-dashboard.php:352
-#: includes/class-dashboard.php:353
+#: includes/class-dashboard.php:388
+#: includes/class-dashboard.php:389
 #: assets/js/companion.js:2
 msgid "Demo"
 msgstr ""
 
-#: includes/class-dashboard.php:362
-#: includes/class-dashboard.php:363
+#: includes/class-dashboard.php:398
+#: includes/class-dashboard.php:399
 #: assets/js/companion.js:2
 msgid "Settings"
 msgstr ""
 
-#: includes/class-dashboard.php:372
-#: includes/class-dashboard.php:373
+#: includes/class-dashboard.php:408
+#: includes/class-dashboard.php:409
 #: assets/js/companion.js:2
 msgid "System Status"
 msgstr ""
 
-#: includes/class-dashboard.php:382
-#: includes/class-dashboard.php:383
+#: includes/class-dashboard.php:418
+#: includes/class-dashboard.php:419
 #: assets/js/companion.js:2
 msgid "Need Help?"
 msgstr ""

@@ -194,12 +194,12 @@ class Lite_Plus_Theme {
 	 */
 	public function theme_redirect() {
 		if ( $this->is_wizard_done() ) {
-			update_option( $this->theme_slug . '_lite_plus_wizard_setup_done', 'yes' );
+			update_option( $this->theme_slug . '_lite_plus_wizard_setup_done', 'yes', false );
 			wp_safe_redirect( admin_url( 'themes.php?page=' . $this->theme_slug . '-dashboard' ) );
 		}
 
 		if ( get_option( $this->theme_slug . '_lite_plus_wizard_init_done' ) !== 'yes' ) {
-			update_option( $this->theme_slug . '_lite_plus_wizard_init_done', 'yes' );
+			update_option( $this->theme_slug . '_lite_plus_wizard_init_done', 'yes', false );
 			wp_safe_redirect( admin_url( 'themes.php?page=' . $this->theme_slug . '-wizard' ) );
 			exit;
 		}

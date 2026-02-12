@@ -188,30 +188,21 @@ class Helper {
 			)
 		);
 
-		/*
-		--------------------
-		* Content preparation
-		* -------------------- */
+		// Content preparation.
 		$content = str_replace(
 			array( '{{home_url}}', "\'" ),
 			array( $theme_url, "'" ),
 			$page['content']
 		);
 
-		/*
-		--------------------
-		* Import patterns
-		* -------------------- */
+		// Import patterns.
 		foreach ( array( 'core-patterns', 'pro-patterns', 'gutenverse-patterns' ) as $pattern_key ) {
 			if ( ! empty( $page[ $pattern_key ] ) ) {
 				$this->import_synced_patterns( $page[ $pattern_key ], $theme_slug, $inserted_content );
 			}
 		}
 
-		/*
-		--------------------
-		* Image handling
-		* -------------------- */
+		// Image handling.
 		if ( ! empty( $page['image_arr'] ) ) {
 			$images = json_decode( $page['image_arr'] );
 			if ( empty( $images ) ) {
@@ -253,10 +244,7 @@ class Helper {
 			}
 		}
 
-		/*
-		--------------------
-		* Page creation/update
-		* -------------------- */
+		// Page creation/update.
 		$page_id = null;
 
 		if ( 'news' === $theme_mode ) {
@@ -307,14 +295,11 @@ class Helper {
 			}
 		}
 		if ( ! empty( $page['is_homepage'] ) && $page_id ) {
-			update_option( 'show_on_front', 'page' );
-			update_option( 'page_on_front', $page_id );
+			update_option( 'show_on_front', 'page', false );
+			update_option( 'page_on_front', $page_id, false );
 		}
 
-		/*
-		--------------------
-		* Store inserted page
-		* -------------------- */
+		// Store inserted page.
 		if ( $page_id ) {
 			$slug                               = sanitize_title( $page['pagetitle'] );
 			$inserted_content['pages'][ $slug ] = array(
@@ -332,7 +317,8 @@ class Helper {
 
 			update_option(
 				"gutenverse_{$active_slug}_content_inserted",
-				$inserted_content
+				$inserted_content,
+				false
 			);
 		}
 
@@ -387,7 +373,7 @@ class Helper {
 				continue;
 			}
 
-			// Fetch existing items ONCE
+			// Fetch existing items ONCE.
 			$existing_items = wp_get_nav_menu_items( $menu_id );
 			$item_map       = array();
 
@@ -455,10 +441,7 @@ class Helper {
 							$args['menu-item-object-id'] = $page_id;
 						}
 					}
-				}
-
-				/* Term links */
-				elseif ( $data->object_slug && in_array( $data->type, array( 'category', 'post_tag' ), true ) ) {
+				} elseif ( $data->object_slug && in_array( $data->type, array( 'category', 'post_tag' ), true ) ) {
 					$term = get_term_by( 'slug', 'dummy-' . $data->object_slug, $data->type );
 
 					if ( $term->taxonomy === $existed['object'] ) {
@@ -469,10 +452,7 @@ class Helper {
 						$args['menu-item-object']    = $term->taxonomy;
 						$args['menu-item-object-id'] = (int) $term->term_id;
 					}
-				}
-
-				/* Fallback to custom link */
-				else {
+				} else {
 					$args['menu-item-type'] = 'custom';
 					$args['menu-item-url']  = esc_url_raw( $url ?? '#' );
 				}
@@ -504,7 +484,7 @@ class Helper {
 			}
 		}
 
-		update_option( $option_key, $inserted_content );
+		update_option( $option_key, $inserted_content, false );
 
 		return true;
 	}
@@ -642,7 +622,7 @@ class Helper {
 			}
 		}
 
-		update_option( $theme_slug . '_synced_pattern_imported', $pattern_list );
+		update_option( $theme_slug . '_synced_pattern_imported', $pattern_list, false );
 	}
 
 	/**
@@ -681,10 +661,7 @@ class Helper {
 				)
 			);
 
-			/*
-			-----------------------------
-			* Import Taxonomies
-			* ----------------------------- */
+			// Import Taxonomies.
 			$post_categories_path = $base_path . '/post_categories.json';
 			if ( file_exists( $post_categories_path ) ) {
 				$data = json_decode( file_get_contents( $post_categories_path ), true );
@@ -697,28 +674,19 @@ class Helper {
 				$this->import_taxonomies( $data, 'post_tag', $inserted_dummies );
 			}
 
-			/*
-			-----------------------------
-			* Prepare Post Contents
-			* ----------------------------- */
+			// Prepare Post Contents.
 			$prepared_contents = $this->prepare_post_contents(
 				$base_path . '/post_content.json',
 				$inserted_dummies
 			);
 
-			/*
-			-----------------------------
-			* Prepare Featured Images
-			* ----------------------------- */
+			// Prepare Featured Images.
 			$prepared_images = $this->prepare_featured_images(
 				$base_path . '/post_images.json',
 				$inserted_dummies
 			);
 
-			/*
-			-----------------------------
-			* Insert / Update Posts
-			* ----------------------------- */
+			// Insert / Update Posts.
 			$posts_path = trailingslashit( $base_path . '/post-list' );
 			$files      = $wp_filesystem->dirlist( $posts_path );
 
@@ -727,7 +695,7 @@ class Helper {
 			}
 
 			foreach ( $files as $file ) {
-				if ( $file['name'] === '.DS_Store' ) {
+				if ( '.DS_Store' === $file['name'] ) {
 					continue;
 				}
 
@@ -772,7 +740,8 @@ class Helper {
 
 			update_option(
 				'gutenverse_' . $active_theme_slug . '_dummy_inserted',
-				$inserted_dummies
+				$inserted_dummies,
+				false
 			);
 
 		} catch ( \Throwable $th ) {
@@ -1109,7 +1078,7 @@ class Helper {
 					foreach ( $page['placeholder'] as $key => $dummy ) {
 						$placeholder = $dummy;
 
-						$target      = isset( $merge_all_dummies[ $placeholder ] ) ? $merge_all_dummies[ $placeholder ] : '';
+						$target = isset( $merge_all_dummies[ $placeholder ] ) ? $merge_all_dummies[ $placeholder ] : '';
 						if ( 'id' !== $part ) {
 							$target = isset( $merge_all_dummies[ $placeholder ] ) ? $merge_all_dummies[ $placeholder ] : 'Placeholder';
 						}
@@ -1126,7 +1095,7 @@ class Helper {
 				}
 			}
 
-			update_option( 'gutenverse_' . get_stylesheet() . '_content_inserted', $inserted_content );
+			update_option( 'gutenverse_' . get_stylesheet() . '_content_inserted', $inserted_content, false );
 		} catch ( \Throwable $th ) {
 			return new WP_REST_Response(
 				array(

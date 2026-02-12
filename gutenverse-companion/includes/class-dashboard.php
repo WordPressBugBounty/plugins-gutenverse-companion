@@ -46,9 +46,9 @@ class Dashboard {
 			add_filter( 'submenu_file', array( $this, 'highlight_submenu_item' ) );
 			add_filter(
 				'admin_title',
-				function ( $admin_title, $title ) {
+				function ( $admin_title, $title ) { // phpcs:ignore
 					$theme = wp_get_theme();
-					if ( isset( $_GET['page'] ) && 'gutenverse-companion-wizard' === $_GET['page'] ) {
+					if ( isset( $_GET['page'] ) && 'gutenverse-companion-wizard' === $_GET['page'] ) { // phpcs:ignore
 						return $theme->get( 'Name' ) . ' Wizard';
 					}
 					return $admin_title;
@@ -82,7 +82,7 @@ class Dashboard {
 	 */
 	public function companion_redirect() {
 		if ( get_option( 'gutenverse-companion_wizard_init_done' ) !== 'yes' ) {
-			update_option( 'gutenverse-companion_wizard_init_done', 'yes' );
+			update_option( 'gutenverse-companion_wizard_init_done', 'yes', false );
 			wp_safe_redirect( admin_url( 'admin.php?page=gutenverse-companion-wizard' ) );
 			exit;
 		}
@@ -143,7 +143,7 @@ class Dashboard {
 	public function companion_config() {
 		global $pagenow;
 
-		$config = array(
+		$config                        = array(
 			'home_url'       => home_url(),
 			'dashboard'      => admin_url( 'admin.php?page=gutenverse-companion-dashboard' ),
 			'admin_url'      => admin_url(),
@@ -158,15 +158,51 @@ class Dashboard {
 			'nonce'          => wp_create_nonce( 'wp_rest' ),
 			'demoLibraryUrl' => GUTENVERSE_COMPANION_LIBRARY_URL,
 		);
-		$theme                = wp_get_theme();
-		$config['theme_name'] = $theme->get( 'Name' );
-		$config['plugins']    = self::list_plugin();
+		$theme                         = wp_get_theme();
+		$config['theme_name']          = $theme->get( 'Name' );
+		$config['plugins']             = self::list_plugin();
+		$config['unibiz_event_banner'] = $this->get_unibiz_event_banner();
 
-		if ( ('admin.php' === $pagenow || 'themes.php' === $pagenow) && isset( $_GET['page'] ) && ('gutenverse-companion-dashboard' === $_GET['page'] || wp_get_theme()->get_template() . '-dashboard' === $_GET['page']) ) {
+		if ( ( 'admin.php' === $pagenow || 'themes.php' === $pagenow ) && isset( $_GET['page'] ) && ( 'gutenverse-companion-dashboard' === $_GET['page'] || wp_get_theme()->get_template() . '-dashboard' === $_GET['page'] ) ) {
 			$config['system'] = $this->system_status();
 		}
 
 		return $config;
+	}
+
+	/**
+	 * Get Event Banner
+	 *
+	 * @return mixed
+	 */
+	public function get_unibiz_event_banner() {
+		$data = get_transient( 'gutenverse_companion_unibiz_banner_cache' );
+		if ( $data ) {
+			if ( ! $data->banner_demo || !$data->banner_wizard || ! $data->url || ! $data->expired ) { // phpcs:ignore
+				return array();
+			}
+			$data->closed = get_option( 'gutenverse-companion-promotion-notice', '' );
+			return $data;
+		}
+		$response = wp_remote_request(
+			GUTENVERSE_COMPANION_API_URL . 'wp-json/gutenverse-banner/v1/unibizdata',
+			array(
+				'method' => 'POST',
+			)
+		);
+		if ( is_wp_error( $response ) || 200 !== $response['response']['code'] ) {
+			return array();
+		}
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body );
+
+		if ( ! $data->banner_demo || ! $data->url || ! $data->expired ) { // phpcs:ignore
+			return array();
+		}
+		$data->closed = get_option( 'gutenverse-companion-promotion-notice', '' );
+		set_transient( 'gutenverse_companion_unibiz_banner_cache', $data, 3 * HOUR_IN_SECONDS );
+		update_option( 'gutenverse-companion-promotion-demo-banner', $data->banner_demo );
+		return $data;
 	}
 
 	/**
@@ -397,9 +433,16 @@ class Dashboard {
 		);
 	}
 
+	/**
+	 * Gutenverse Dashboard Config
+	 *
+	 * @param string $submenu_file Submenu file.
+	 *
+	 * @return string
+	 */
 	public function highlight_submenu_item( $submenu_file ) {
-		$current_page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
-		$current_path = isset( $_GET['path'] ) ? sanitize_text_field( wp_unslash( $_GET['path'] ) ) : '';
+		$current_page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore
+		$current_path = isset( $_GET['path'] ) ? sanitize_text_field( wp_unslash( $_GET['path'] ) ) : ''; // phpcs:ignore
 
 		$dashboard_slug = self::TYPE . '-dashboard';
 

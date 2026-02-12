@@ -243,13 +243,13 @@ class Gutenverse_Theme {
 	public function theme_redirect() {
 		if ( ! apply_filters( 'gutenverse_companion_base_theme', false ) ) {
 			if ( $this->is_wizard_done() ) {
-				update_option( $this->theme_slug . '_wizard_setup_done', 'yes' );
+				update_option( $this->theme_slug . '_wizard_setup_done', 'yes', false );
 				wp_safe_redirect( admin_url( 'themes.php?page=' . $this->theme_slug . '-dashboard' ) );
 			}
 
 			if ( get_option( $this->theme_slug . '_wizard_init_done' ) !== 'yes' ) {
 
-				update_option( $this->theme_slug . '_wizard_init_done', 'yes' );
+				update_option( $this->theme_slug . '_wizard_init_done', 'yes', false );
 				wp_safe_redirect( admin_url( 'admin.php?page=theme-wizard' ) );
 				exit;
 			}

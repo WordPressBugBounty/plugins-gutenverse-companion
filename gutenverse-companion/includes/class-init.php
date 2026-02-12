@@ -101,7 +101,7 @@ class Init {
 	 * Remove Default Style when import default demo on Unibiz Theme
 	 */
 	public function remove_enqueue_default_style() {
-		$theme        = wp_get_theme(); // omit slug to get current theme
+		$theme        = wp_get_theme(); // omit slug to get current theme.
 		$demo_options = get_option( 'gutenverse-companion-imported-options', false );
 		if ( $demo_options && isset( $demo_options['demo_id'] ) && 'default' !== $demo_options['demo_id'] && 'Unibiz' === $theme->get( 'Name' ) ) {
 			wp_dequeue_style( 'unibiz-style' );
@@ -215,6 +215,7 @@ class Init {
 			add_filter( 'gutenverse_stylesheet_directory', array( $this, 'change_stylesheet_directory' ) );
 			add_action( 'admin_enqueue_scripts', array( $this, 'dashboard_enqueue_scripts' ) );
 			add_action( 'wp_ajax_gutenverse_companion_notice_close', array( $this, 'companion_notice_close' ) );
+			add_action( 'wp_ajax_gutenverse_unibiz_dismiss_promotion_notice', array( $this, 'unibiz_promotion_close' ) );
 			$this->dashboard = new Dashboard();
 		}
 		$this->lite_plus_theme = new Lite_Plus_Theme();
@@ -356,6 +357,15 @@ class Init {
 	 * Change option page upgrade to true.
 	 */
 	public function companion_notice_close() {
-		update_option( 'gutenverse-companion-base-theme-notice', true );
+		update_option( 'gutenverse-companion-base-theme-notice', true, false );
+	}
+	/**
+	 * Change option page upgrade to true.
+	 */
+	public function unibiz_promotion_close() {
+		$old = get_option( 'gutenverse-companion-promotion-demo-banner', '' );
+		if ( $old ) {
+			update_option( 'gutenverse-companion-promotion-notice', $old );
+		}
 	}
 }
