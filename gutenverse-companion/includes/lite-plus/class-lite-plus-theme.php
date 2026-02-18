@@ -186,7 +186,7 @@ class Lite_Plus_Theme {
 	 * Check parameter.
 	 */
 	private function is_wizard_done() {
-		return isset( $_GET['page'] ) && isset( $_GET['wizard_setup_done'] ) && $_GET['page'] === $this->theme_slug . '-dashboard' && $_GET['wizard_setup_done'] === 'yes';
+		return isset( $_GET['page'] ) && isset( $_GET['wizard_setup_done'] ) && $_GET['page'] === $this->theme_slug . '-dashboard' && 'yes' === $_GET['wizard_setup_done'];
 	}
 
 	/**
@@ -201,6 +201,16 @@ class Lite_Plus_Theme {
 		if ( get_option( $this->theme_slug . '_lite_plus_wizard_init_done' ) !== 'yes' ) {
 			update_option( $this->theme_slug . '_lite_plus_wizard_init_done', 'yes', false );
 			wp_safe_redirect( admin_url( 'themes.php?page=' . $this->theme_slug . '-wizard' ) );
+			exit;
+		}
+
+		// Already done but somehow still accessing the wizard → go to dashboard.
+		if (
+			get_option( $this->theme_slug . '_lite_plus_wizard_setup_done' ) === 'yes' &&
+			isset( $_GET['page'] ) &&
+			$_GET['page'] === $this->theme_slug . '-wizard'
+		) {
+			wp_safe_redirect( admin_url( 'themes.php?page=' . $this->theme_slug . '-dashboard' ) );
 			exit;
 		}
 	}

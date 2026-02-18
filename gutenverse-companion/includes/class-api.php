@@ -379,10 +379,10 @@ class Api {
 		$url = GUTENVERSE_COMPANION_LIBRARY_URL;
 		$ch  = curl_init( $url );
 
-		curl_setopt( $ch, CURLOPT_NOBODY, true );            // Use HEAD request
-		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );    // Don't output the response
-		curl_setopt( $ch, CURLOPT_TIMEOUT, 5 );              // Timeout in seconds
-		curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, true );    // Follow redirects
+		curl_setopt( $ch, CURLOPT_NOBODY, true );            // Use HEAD request.
+		curl_setopt( $ch, CURLOPT_RETURNTRANSFER, true );    // Don't output the response.
+		curl_setopt( $ch, CURLOPT_TIMEOUT, 5 );              // Timeout in seconds.
+		curl_setopt( $ch, CURLOPT_FOLLOWLOCATION, true );    // Follow redirects.
 
 		curl_exec( $ch );
 		$http_code  = curl_getinfo( $ch, CURLINFO_HTTP_CODE );
@@ -433,7 +433,11 @@ class Api {
 	}
 
 	/**
-	 * Check image tyep
+	 * Check image type.
+	 *
+	 * @param array $file File array.
+	 *
+	 * @return bool
 	 */
 	private function is_valid_image_type( $file ) {
 		// Define a list of accepted MIME types for site logos and favicons.
@@ -469,7 +473,7 @@ class Api {
 		}
 
 		/**Change Site Logo */
-		$logo = ! empty( $_FILES['site_logo'] ) ? $_FILES['site_logo'] : false;
+		$logo = ! empty( $_FILES['site_logo'] ) ? $_FILES['site_logo'] : false; //phpcs:ignore
 		if ( $logo ) {
 			// First, validate the file type.
 			if ( ! $this->is_valid_image_type( $logo ) ) {
@@ -494,7 +498,7 @@ class Api {
 		}
 
 		/**Change Site FavIcon */
-		$favicon = ! empty( $_FILES['site_favicon'] ) ? $_FILES['site_favicon'] : false;
+		$favicon = ! empty( $_FILES['site_favicon'] ) ? $_FILES['site_favicon'] : false; //phpcs:ignore
 		if ( $favicon ) {
 			// First, validate the file type.
 			if ( ! $this->is_valid_image_type( $favicon ) ) {
@@ -967,7 +971,7 @@ class Api {
 					$new_fonts = $new_typography->fontFamilies->theme; // phpcs:ignore
 
 					foreach ( $new_fonts as &$n_font ) {
-						// Remove or escape quotes inside fontFamily
+						// Remove or escape quotes inside fontFamily.
 						$n_font->fontFamily = str_replace( '"', '', $n_font->fontFamily ); // phpcs:ignore
 
 						foreach ( $n_font->fontFace as &$n_face ) { // phpcs:ignore
@@ -1595,7 +1599,7 @@ class Api {
 				}
 
 				/** Check category */
-				if ( $category_filter !== '' ) {
+				if ( ! empty( $category_filter ) ) {
 					foreach ( $demo['categories'] as $category ) {
 						if ( $category['slug'] === $category_filter ) {
 							return true;
@@ -1626,7 +1630,7 @@ class Api {
 				$paged_data = array_merge( $pro_demos, $paged_data );
 			}
 		}
-		$theme          = wp_get_theme(); // omit slug to get current theme
+		$theme          = wp_get_theme(); // omit slug to get current theme.
 		$screenshot_url = $theme->get_screenshot();
 
 		$default_theme = array(

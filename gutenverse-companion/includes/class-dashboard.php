@@ -143,7 +143,7 @@ class Dashboard {
 	public function companion_config() {
 		global $pagenow;
 
-		$config                        = array(
+		$config               = array(
 			'home_url'       => home_url(),
 			'dashboard'      => admin_url( 'admin.php?page=gutenverse-companion-dashboard' ),
 			'admin_url'      => admin_url(),
@@ -434,9 +434,9 @@ class Dashboard {
 	}
 
 	/**
-	 * Gutenverse Dashboard Config
+	 * Highlight Submenu Item
 	 *
-	 * @param string $submenu_file Submenu file.
+	 * @param string $submenu_file .
 	 *
 	 * @return string
 	 */

@@ -194,7 +194,7 @@ class Init {
 	 * @return mixed
 	 */
 	public function is_change_stylesheet_directory() {
-		return (bool) get_option( 'gutenverse_companion_template_options' ) && isset( get_option( 'gutenverse_companion_template_options' )['active_theme'] ) && get_option( 'gutenverse_companion_template_options' )['active_theme'] === wp_get_theme()->get_template();
+		return (bool) get_option( 'gutenverse_companion_template_options' ) && isset( get_option( 'gutenverse_companion_template_options' )['active_theme'] ) && wp_get_theme()->get_template() === get_option( 'gutenverse_companion_template_options' )['active_theme'];
 	}
 
 	/**

@@ -56,10 +56,11 @@ class Helper {
 	 * Handle Import file, and return File ID when process complete
 	 *
 	 * @param string $url URL of file.
+	 * @param string $alt Alt text of image.
 	 *
 	 * @return int|null
 	 */
-	public static function handle_file( $url ) {
+	public static function handle_file( $url, $alt = '' ) {
 		$file_name = basename( $url );
 		$upload    = wp_upload_bits( $file_name, null, '' );
 		self::fetch_file( $url, $upload['file'] );
@@ -79,13 +80,14 @@ class Helper {
 			include_once ABSPATH . 'wp-admin/includes/image.php';
 			$attach_id = wp_insert_attachment( $attachment, $file_loc );
 			update_post_meta( $attach_id, '_import_source', $url );
+			if ( ! empty( $alt ) ) {
+				update_post_meta( $attach_id, '_wp_attachment_image_alt', $alt );
+			}
 
 			try {
 				$attach_data = wp_generate_attachment_metadata( $attach_id, $file_loc );
 				wp_update_attachment_metadata( $attach_id, $attach_data );
 			} catch ( \Exception $e ) {
-				// none.
-			} catch ( \Throwable $t ) {
 				// none.
 			}
 
@@ -188,64 +190,112 @@ class Helper {
 			)
 		);
 
-		// Content preparation.
+		/*
+		--------------------
+		* Content preparation
+		* --------------------
+		*/
 		$content = str_replace(
 			array( '{{home_url}}', "\'" ),
 			array( $theme_url, "'" ),
 			$page['content']
 		);
 
-		// Import patterns.
+		/*
+		--------------------
+		* Import patterns
+		* --------------------
+		*/
 		foreach ( array( 'core-patterns', 'pro-patterns', 'gutenverse-patterns' ) as $pattern_key ) {
 			if ( ! empty( $page[ $pattern_key ] ) ) {
 				$this->import_synced_patterns( $page[ $pattern_key ], $theme_slug, $inserted_content );
 			}
 		}
 
-		// Image handling.
+		/*
+		--------------------
+		* Image handling
+		* --------------------
+		*/
+		$image_importer_ver = $page['image_importer_ver'] ?? null;
 		if ( ! empty( $page['image_arr'] ) ) {
 			$images = json_decode( $page['image_arr'] );
-			if ( empty( $images ) ) {
-				/**
-				 * 1. Convert single quotes to double quotes
-				 * 2. Decode as JSON
-				 */
-				$json   = preg_replace( "/'/", '"', $page['image_arr'] );
-				$images = json_decode( $json, true );
-			}
+			/**
+			 * 1. Convert single quotes to double quotes
+			 * 2. Decode as JSON
+			 */
+			$json   = preg_replace( "/'/", '"', $page['image_arr'] );
+			$images = json_decode( $json, true );
 			if ( is_array( $images ) ) {
-				$content = wp_slash( $content );
+				if ( ! $image_importer_ver ) {
+					$content = wp_slash( $content );
 
-				foreach ( $images as $image ) {
-					$img_url = $image['image_url'];
-					$img_id  = $image['image_id'];
-					if ( empty( $img_url ) ) {
-						$img_url = $image->image_url;
-						$img_id  = $image->image_id;
+					foreach ( $images as $image ) {
+						$img_url = $image['image_url'];
+						$img_id  = $image['image_id'];
+						if ( empty( $img_url ) ) {
+							$img_url = $image->image_url;
+							$img_id  = $image->image_id;
+						}
+
+						$data = self::check_image_exist( $img_url );
+						if ( ! $data ) {
+							$data = self::handle_file( $img_url );
+						}
+
+						if ( ! empty( $data['url'] ) ) {
+							$content = str_replace( $img_url, $data['url'], $content );
+						}
+
+						if ( ! empty( $img_id ) && 'null' !== $img_id ) {
+							$content = str_replace(
+								'"imageId":' . $img_id,
+								'"imageId":' . $data['id'],
+								$content
+							);
+						}
 					}
-
-					$data = self::check_image_exist( $img_url );
-					if ( ! $data ) {
-						$data = self::handle_file( $img_url );
-					}
-
-					if ( ! empty( $data['url'] ) ) {
-						$content = str_replace( $img_url, $data['url'], $content );
-					}
-
-					if ( ! empty( $img_id ) && 'null' !== $img_id ) {
-						$content = str_replace(
-							'"imageId":' . $img_id,
-							'"imageId":' . $data['id'],
-							$content
-						);
+				} else {
+					foreach ( $images as $key => $image ) {
+						$url     = $key;
+						$pattern = $image['pattern'];
+						$data    = self::check_image_exist( $url );
+						$alt     = isset( $image['alt'] ) ?? '';
+						if ( ! $data ) {
+							$data = self::handle_file( $url, $alt );
+						}
+						foreach ( $pattern as $p ) {
+							$placeholder_arr        = explode( '|', trim( $p, '{}' ) );
+							$placeholder_value_type = end( $placeholder_arr );
+							switch ( $placeholder_value_type ) {
+								case 'url':
+									$placeholder_data_type = $placeholder_arr[1];
+									if ( 'case2' === $placeholder_data_type ) {
+										$placeholder_data_size = $placeholder_arr[3];
+										$target                = wp_get_attachment_image_url( $data['id'], $placeholder_data_size );
+									} else {
+										$target = wp_get_attachment_url( $data['id'] );
+									}
+									break;
+								case 'id':
+								default:
+									$target = $data['id'];
+									break;
+							}
+							$content = str_replace( $p, $target, $content );
+						}
 					}
 				}
 			}
 		}
 
-		// Page creation/update.
+		/*
+		--------------------
+		* Page creation/update
+		* --------------------
+		*/
 		$page_id = null;
+		$content = $this->decode_unicode_sequences( $content );
 
 		if ( 'news' === $theme_mode ) {
 			$page_id = wp_insert_post(
@@ -299,7 +349,11 @@ class Helper {
 			update_option( 'page_on_front', $page_id, false );
 		}
 
-		// Store inserted page.
+		/*
+		--------------------
+		* Store inserted page
+		* --------------------
+		*/
 		if ( $page_id ) {
 			$slug                               = sanitize_title( $page['pagetitle'] );
 			$inserted_content['pages'][ $slug ] = array(
@@ -363,54 +417,67 @@ class Helper {
 		}
 
 		foreach ( $menus as $key => $menu ) {
-			$menu_name   = get_option( 'stylesheet' ) . ' ' . ( (int) $key + 1 );
 			$old_menu_id = $menu->menu_id;
+			$menu_name   = get_option( 'stylesheet' ) . ' ' . ( (int) $key + 1 );
 
 			$menu_obj = wp_get_nav_menu_object( $menu_name );
-			$menu_id  = $menu_obj ? $menu_obj->term_id : wp_create_nav_menu( $menu_name );
+			$menu_id  = $menu_obj ? (int) $menu_obj->term_id : wp_create_nav_menu( $menu_name );
 
 			if ( is_wp_error( $menu_id ) ) {
 				continue;
 			}
 
-			// Fetch existing items ONCE.
+			/*
+			-------------------------
+			 * Build stable lookup map
+			 * ------------------------
+			 */
+
 			$existing_items = wp_get_nav_menu_items( $menu_id );
 			$item_map       = array();
 
 			if ( $existing_items ) {
 				foreach ( $existing_items as $item ) {
-					$object_slug                                    = get_post_meta( $item->ID, '_' . $active_slug . '_menu_item_object_slug', true );
-					$item_map[ $item->object . '_' . $object_slug ] = array(
-						'id'     => $item->ID,
-						'object' => $item->object,
+
+					$key = get_post_meta(
+						$item->ID,
+						'_' . $active_slug . '_menu_unique_key',
+						true
 					);
+
+					if ( $key ) {
+						$item_map[ $key ] = (int) $item->ID;
+					}
 				}
 			}
 
 			$parent_map = array();
+			$position   = 1;
 
 			foreach ( $menu->menu_data as $idx => $data ) {
-				$menu_parent = 0;
-				$url         = $data->url ?? '#';
 
-				/* Parent mapping */
+				$menu_parent = 0;
+
 				if ( null !== $data->parent && isset( $parent_map[ $data->parent ] ) ) {
 					$menu_parent = $parent_map[ $data->parent ];
 				}
 
-				$existed = $item_map[ $data->type . '_' . $data->object_slug ] ?? null;
+				$unique_key = $this->generate_menu_unique_key( $data );
+
+				$menu_item_id = $item_map[ $unique_key ] ?? 0;
 
 				$args = array(
 					'menu-item-title'     => $data->title,
 					'menu-item-status'    => 'publish',
 					'menu-item-parent-id' => $menu_parent,
+					'menu-item-position'  => $position,
 				);
 
-				/* Page links */
+				/* -------- Page -------- */
 				if ( $data->object_slug && 'page' === $data->type ) {
-					$page_id = null;
 
-					// 1. Get page ID from inserted content map
+					$page_id = 0;
+
 					if (
 					isset( $inserted_content['pages'][ $data->object_slug ]['id'] ) &&
 					$inserted_content['pages'][ $data->object_slug ]['id']
@@ -418,35 +485,21 @@ class Helper {
 						$page_id = (int) $inserted_content['pages'][ $data->object_slug ]['id'];
 					}
 
-					// 2. Fallback: find existing page by path
 					if ( ! $page_id ) {
-						$existed_page = get_page_by_path( $data->object_slug, OBJECT, 'page' );
-
-						if ( $existed_page instanceof WP_Post ) {
-							$page_id = (int) $existed_page->ID;
+						$page = get_page_by_path( $data->object_slug, OBJECT, 'page' );
+						if ( $page instanceof \WP_Post ) {
+							$page_id = (int) $page->ID;
 						}
 					}
 
-					if ( $existed && 'page' === $existed['object'] ) {
-						continue;
-					}
-
-					// 3. Final validation and menu args
 					if ( $page_id ) {
-						$post = get_post( $page_id );
-
-						if ( $post && 'page' === $post->post_type ) {
-							$args['menu-item-type']      = 'post_type';
-							$args['menu-item-object']    = 'page';
-							$args['menu-item-object-id'] = $page_id;
-						}
+						$args['menu-item-type']      = 'post_type';
+						$args['menu-item-object']    = 'page';
+						$args['menu-item-object-id'] = $page_id;
 					}
 				} elseif ( $data->object_slug && in_array( $data->type, array( 'category', 'post_tag' ), true ) ) {
 					$term = get_term_by( 'slug', 'dummy-' . $data->object_slug, $data->type );
 
-					if ( $term->taxonomy === $existed['object'] ) {
-						continue;
-					}
 					if ( $term && ! is_wp_error( $term ) ) {
 						$args['menu-item-type']      = 'taxonomy';
 						$args['menu-item-object']    = $term->taxonomy;
@@ -454,10 +507,8 @@ class Helper {
 					}
 				} else {
 					$args['menu-item-type'] = 'custom';
-					$args['menu-item-url']  = esc_url_raw( $url ?? '#' );
+					$args['menu-item-url']  = esc_url_raw( $data->url ?? '#' );
 				}
-
-				$menu_item_id = $item_map[ $data->type . '_' . $data->object_slug ]['id'] ?? 0;
 
 				$menu_item_id = wp_update_nav_menu_item(
 					$menu_id,
@@ -465,16 +516,23 @@ class Helper {
 					$args
 				);
 
-				$exist_object_slug = get_post_meta( $menu_item_id, '_' . $active_slug . '_menu_item_object_slug', true );
-				if ( ! $exist_object_slug && 'custom' !== $args['menu-item-type'] ) {
-					update_post_meta( $menu_item_id, '_' . $active_slug . '_menu_item_object_slug', $data->object_slug );
+				if ( is_wp_error( $menu_item_id ) ) {
+					continue;
 				}
 
-				if ( ! is_wp_error( $menu_item_id ) && ! empty( $data->have_child ) ) {
+				/* Store stable key */
+				update_post_meta(
+					$menu_item_id,
+					'_' . $active_slug . '_menu_unique_key',
+					$unique_key
+				);
+
+				if ( ! empty( $data->have_child ) ) {
 					$parent_map[ $idx ] = $menu_item_id;
 				}
-			}
 
+				++$position;
+			}
 			if ( $old_menu_id !== $menu_id ) {
 				$inserted_content['menus'][ 'old_' . $old_menu_id ] = array(
 					'old_id' => $old_menu_id,
@@ -487,6 +545,22 @@ class Helper {
 		update_option( $option_key, $inserted_content, false );
 
 		return true;
+	}
+
+	/**
+	 * Generate menu unique key.
+	 *
+	 * @param object $data Menu data.
+	 * @return string
+	 */
+	private function generate_menu_unique_key( $data ) {
+
+		if ( ! empty( $data->object_slug ) ) {
+			return $data->type . '_' . $data->object_slug;
+		}
+
+		// Custom link fallback.
+		return 'custom_' . sanitize_title( $data->title );
 	}
 
 	/**
@@ -568,22 +642,56 @@ class Helper {
 				$post_id = $post ? $post->ID : null;
 				if ( empty( $post ) ) {
 					/**Download Image */
-					$content = wp_slash( $pattern_data['content'] );
-					if ( $pattern_data['images'] ) {
+					$content            = wp_slash( $pattern_data['content'] );
+					$image_importer_ver = $pattern_data['image_importer_ver'] ?? null;
+					if ( isset( $pattern_data['images'] ) && ! empty( $pattern_data['images'] ) ) {
 						$images = json_decode( $pattern_data['images'] );
-						foreach ( $images as $key => $image ) {
-							$url  = $image->image_url;
-							$data = self::check_image_exist( $url );
-							if ( ! $data ) {
-								$data = self::handle_file( $url );
+						if ( ! $image_importer_ver ) {
+							foreach ( $images as $key => $image ) {
+								$url  = $image->image_url;
+								$data = self::check_image_exist( $url );
+								if ( ! $data ) {
+									$data = self::handle_file( $url );
+								}
+								$content  = str_replace( $url, $data['url'], $content );
+								$image_id = $image->image_id;
+								if ( $image_id && 'null' !== $image_id ) {
+									$content = str_replace( '"imageId\":' . $image_id, '"imageId\":' . $data['id'], $content );
+								}
 							}
-							$content  = str_replace( $url, $data['url'], $content );
-							$image_id = $image->image_id;
-							if ( $image_id && 'null' !== $image_id ) {
-								$content = str_replace( '"imageId\":' . $image_id, '"imageId\":' . $data['id'], $content );
+						} else {
+							foreach ( $images as $key => $image ) {
+								$url     = $key;
+								$pattern = $image->pattern;
+								$data    = self::check_image_exist( $url );
+								$alt     = isset( $image->alt ) ?? '';
+								if ( ! $data ) {
+									$data = self::handle_file( $url, $alt );
+								}
+								foreach ( $pattern as $p ) {
+									$placeholder_arr        = explode( '|', trim( $p, '{}' ) );
+									$placeholder_value_type = end( $placeholder_arr );
+									switch ( $placeholder_value_type ) {
+										case 'url':
+											$placeholder_data_type = $placeholder_arr[1];
+											if ( 'case2' === $placeholder_data_type ) {
+												$placeholder_data_size = $placeholder_arr[3];
+												$target                = wp_get_attachment_image_url( $data['id'], $placeholder_data_size );
+											} else {
+												$target = wp_get_attachment_url( $data['id'] );
+											}
+											break;
+										case 'id':
+										default:
+											$target = $data['id'];
+											break;
+									}
+									$content = str_replace( $p, $target, $content );
+								}
 							}
 						}
 					}
+					$content = $this->decode_unicode_sequences( $content );
 					$post_id = wp_insert_post(
 						array(
 							'post_name'    => $block_pattern . '-synced',
@@ -627,6 +735,10 @@ class Helper {
 
 	/**
 	 * Handle Import Posts
+	 *
+	 * @throws \Exception .
+	 *
+	 * @return WP_REST_Response
 	 */
 	public function import_posts() {
 		try {
@@ -636,7 +748,7 @@ class Helper {
 			WP_Filesystem();
 
 			$type = apply_filters( 'gutenverse_plus_mechanism_content_type', 'normal' );
-			if ( ! in_array( $type, array( 'news' ), true ) ) {
+			if ( ! in_array( $type, array( 'news' ), false ) ) {
 				return new WP_REST_Response(
 					array(
 						'message' => 'Import failed due to an unexpected error while importing dummy content. Please try again.',
@@ -661,7 +773,11 @@ class Helper {
 				)
 			);
 
-			// Import Taxonomies.
+			/*
+			-----------------------------
+			* Import Taxonomies
+			* -----------------------------
+			*/
 			$post_categories_path = $base_path . '/post_categories.json';
 			if ( file_exists( $post_categories_path ) ) {
 				$data = json_decode( file_get_contents( $post_categories_path ), true );
@@ -674,19 +790,31 @@ class Helper {
 				$this->import_taxonomies( $data, 'post_tag', $inserted_dummies );
 			}
 
-			// Prepare Post Contents.
+			/*
+			-----------------------------
+			* Prepare Post Contents
+			* -----------------------------
+			*/
 			$prepared_contents = $this->prepare_post_contents(
 				$base_path . '/post_content.json',
 				$inserted_dummies
 			);
 
-			// Prepare Featured Images.
+			/*
+			-----------------------------
+			* Prepare Featured Images
+			* -----------------------------
+			*/
 			$prepared_images = $this->prepare_featured_images(
 				$base_path . '/post_images.json',
 				$inserted_dummies
 			);
 
-			// Insert / Update Posts.
+			/*
+			-----------------------------
+			* Insert / Update Posts
+			* -----------------------------
+			*/
 			$posts_path = trailingslashit( $base_path . '/post-list' );
 			$files      = $wp_filesystem->dirlist( $posts_path );
 
@@ -748,6 +876,7 @@ class Helper {
 			return new WP_REST_Response(
 				array(
 					'message' => 'Import failed due to an unexpected error while importing dummy content. Please try again.',
+					'details' => $th->getMessage(),
 				),
 				400
 			);
@@ -844,6 +973,27 @@ class Helper {
 	}
 
 	/**
+	 * Decode unicode sequences
+	 *
+	 * @param string $content .
+	 * @return string
+	 */
+	private function decode_unicode_sequences( $content ) {
+		return preg_replace_callback(
+			'/\\\\u([0-9a-fA-F]{4})/',
+			function ( $matches ) {
+				$codepoint = hexdec( $matches[1] );
+				return mb_convert_encoding(
+					pack( 'n', $codepoint ),
+					'UTF-8',
+					'UTF-16BE'
+				);
+			},
+			$content
+		);
+	}
+
+	/**
 	 * Prepare Post Contents
 	 *
 	 * @param string $file .
@@ -861,13 +1011,49 @@ class Helper {
 		$data = json_decode( file_get_contents( $file ), true );
 
 		foreach ( $data as $post ) {
-			$content = $post['content'];
+			$content            = $post['content'];
+			$image_importer_ver = $post['image_importer_ver'] ?? null;
 
-			foreach ( $post['images'] as $img ) {
-				$image                                     = self::check_image_exist( $img ) ?: self::handle_file( $img );
-				$inserted_dummies['post_content_images'][] = $image['id'];
-				$content                                   = str_replace( $img, $image['url'], $content );
+			if ( ! $image_importer_ver ) {
+				foreach ( $post['images'] as $img ) {
+					$image                                     = self::check_image_exist( $img ) ?? self::handle_file( $img );
+					$inserted_dummies['post_content_images'][] = $image['id'];
+					$content                                   = str_replace( $img, $image['url'], $content );
+				}
+			} else {
+				foreach ( $post['images'] as $key => $image ) {
+					$url     = $key;
+					$pattern = $image['pattern'];
+					$data    = self::check_image_exist( $url );
+					$alt     = isset( $image['alt'] ) ?? '';
+					if ( ! $data ) {
+						$data = self::handle_file( $url, $alt );
+					}
+					foreach ( $pattern as $p ) {
+						$placeholder_arr        = explode( '|', trim( $p, '{}' ) );
+						$placeholder_value_type = end( $placeholder_arr );
+						switch ( $placeholder_value_type ) {
+							case 'url':
+								$placeholder_data_type = $placeholder_arr[1];
+								if ( 'case2' === $placeholder_data_type ) {
+									$placeholder_data_size = $placeholder_arr[3];
+									$target                = wp_get_attachment_image_url( $data['id'], $placeholder_data_size );
+								} else {
+									$target = wp_get_attachment_url( $data['id'] );
+								}
+								break;
+							case 'id':
+							default:
+								$target = $data['id'];
+								break;
+						}
+						$content = str_replace( $p, $target, $content );
+					}
+					$inserted_dummies['post_content_images'][] = $data['id'];
+				}
 			}
+
+			$content = $this->decode_unicode_sequences( $content );
 
 			$results[] = array(
 				'content' => $content,
@@ -1021,7 +1207,6 @@ class Helper {
 			);
 
 			$merge_all_dummies = array_merge( $inserted_dummies['posts'], $inserted_dummies['category'], $inserted_dummies['post_tag'] );
-
 			/**Remap Patterns */
 			$inserted_patterns = $inserted_content['patterns'];
 			foreach ( $inserted_patterns as &$pattern ) {
@@ -1031,11 +1216,6 @@ class Helper {
 				$post = get_post( $pattern['id'] );
 				if ( $post ) {
 					$content = $post->post_content;
-
-					/**Has Menu */
-					if ( in_array( $pattern['id'], $inserted_content['content_has_menus'] ) ) {
-						$content = $this->check_navbar( $content, $inserted_content['menus'] );
-					}
 
 					/**Has Dummy */
 					foreach ( $pattern['placeholder'] as $key => $dummy ) {
@@ -1069,11 +1249,6 @@ class Helper {
 				if ( $post ) {
 					$content = $post->post_content;
 
-					/**Has Menu */
-					if ( in_array( $page['id'], $inserted_content['content_has_menus'] ) ) {
-						$content = $this->check_navbar( $content, $inserted_content['menus'] );
-					}
-
 					/**Has Dummy */
 					foreach ( $page['placeholder'] as $key => $dummy ) {
 						$placeholder = $dummy;
@@ -1093,6 +1268,24 @@ class Helper {
 					);
 					$page['is_remapped'] = true;
 				}
+			}
+
+			/**Has Menu */
+			$content_with_menu = $inserted_content['content_has_menus'] ?? array();
+
+			$content_with_menu = array_map( 'intval', (array) $content_with_menu );
+
+			$posts = array_map( 'get_post', $content_with_menu );
+			$posts = array_filter( $posts ); // remove invalid IDs.
+			foreach ( $posts as $post ) {
+				$content = $post->post_content;
+				$content = $this->check_navbar( $content, $inserted_content['menus'] );
+				wp_update_post(
+					array(
+						'ID'           => $post->ID,
+						'post_content' => $content,
+					)
+				);
 			}
 
 			update_option( 'gutenverse_' . get_stylesheet() . '_content_inserted', $inserted_content, false );

@@ -162,6 +162,10 @@ class Gutenverse_Theme {
 
 	/**
 	 * Check if script localized
+	 *
+	 * @param string $handle Script handle.
+	 *
+	 * @return bool
 	 */
 	public function gutenverse_check_if_script_localized( $handle ) {
 		global $wp_scripts;
@@ -234,7 +238,7 @@ class Gutenverse_Theme {
 	 * Check parameter.
 	 */
 	private function is_wizard_done() {
-		return isset( $_GET['page'] ) && isset( $_GET['wizard_setup_done'] ) && $_GET['page'] === $this->theme_slug . '-dashboard' && $_GET['wizard_setup_done'] === 'yes';
+		return isset( $_GET['page'] ) && isset( $_GET['wizard_setup_done'] ) && $_GET['page'] === $this->theme_slug . '-dashboard' && 'yes' === $_GET['wizard_setup_done'];
 	}
 
 	/**
@@ -274,8 +278,8 @@ class Gutenverse_Theme {
 			'pages/assign',
 			array(
 				'methods'             => 'POST',
-				'callback'            => function($request) use ( $helper ) {
-					return $helper->handle_pages($request, true);
+				'callback'            => function ( $request ) use ( $helper ) {
+					return $helper->handle_pages( $request, true );
 				},
 				'permission_callback' => function () {
 					if ( ! current_user_can( 'manage_options' ) ) {
@@ -331,6 +335,4 @@ class Gutenverse_Theme {
 			)
 		);
 	}
-
-	
 }
