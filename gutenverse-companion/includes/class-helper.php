@@ -642,6 +642,7 @@ class Helper {
 				$post_id = $post ? $post->ID : null;
 				if ( empty( $post ) ) {
 					/**Download Image */
+
 					$content            = wp_slash( $pattern_data['content'] );
 					$image_importer_ver = $pattern_data['image_importer_ver'] ?? null;
 					if ( isset( $pattern_data['images'] ) && ! empty( $pattern_data['images'] ) ) {
@@ -692,6 +693,7 @@ class Helper {
 						}
 					}
 					$content = $this->decode_unicode_sequences( $content );
+
 					$post_id = wp_insert_post(
 						array(
 							'post_name'    => $block_pattern . '-synced',
@@ -982,7 +984,16 @@ class Helper {
 		return preg_replace_callback(
 			'/\\\\u([0-9a-fA-F]{4})/',
 			function ( $matches ) {
-				$codepoint = hexdec( $matches[1] );
+
+				$hex = strtolower( $matches[1] );
+
+				// Always keep quotes escaped.
+				if ( '0022' === $hex ) {
+					return '\"';
+				}
+
+				$codepoint = hexdec( $hex );
+
 				return mb_convert_encoding(
 					pack( 'n', $codepoint ),
 					'UTF-8',
@@ -992,7 +1003,6 @@ class Helper {
 			$content
 		);
 	}
-
 	/**
 	 * Prepare Post Contents
 	 *
