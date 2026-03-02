@@ -208,7 +208,7 @@ class Helper {
 		*/
 		foreach ( array( 'core-patterns', 'pro-patterns', 'gutenverse-patterns' ) as $pattern_key ) {
 			if ( ! empty( $page[ $pattern_key ] ) ) {
-				$this->import_synced_patterns( $page[ $pattern_key ], $theme_slug, $inserted_content );
+				$this->import_patterns( $page[ $pattern_key ], $theme_slug, $inserted_content );
 			}
 		}
 
@@ -296,6 +296,7 @@ class Helper {
 		*/
 		$page_id = null;
 		$content = $this->decode_unicode_sequences( $content );
+		$content = wp_slash( $content );
 
 		if ( 'news' === $theme_mode ) {
 			$page_id = wp_insert_post(
@@ -627,76 +628,102 @@ class Helper {
 	 * @param string $theme_slug .
 	 * @param array  $inserted_content .
 	 */
-	public function import_synced_patterns( $patterns, $theme_slug, &$inserted_content ) {
+	public function import_patterns( $patterns, $theme_slug, &$inserted_content ) {
 		$pattern_list = get_option( $theme_slug . '_synced_pattern_imported', false );
 		if ( ! $pattern_list ) {
 			$pattern_list = array();
+		}
+
+		$async_patterns = get_option( $theme_slug . '_async_pattern_imported', false );
+		if ( ! $async_patterns ) {
+			$async_patterns = array();
 		}
 
 		foreach ( $patterns as $block_pattern ) {
 			$pattern_file = get_theme_file_path( '/inc/patterns/' . $block_pattern . '.php' );
 			$pattern_data = require $pattern_file;
 
-			if ( (bool) $pattern_data['is_sync'] ) {
-				$post    = get_page_by_path( $block_pattern . '-synced', OBJECT, 'wp_block' );
-				$post_id = $post ? $post->ID : null;
-				if ( empty( $post ) ) {
-					/**Download Image */
+			$post    = get_page_by_path( $block_pattern . '-synced', OBJECT, 'wp_block' );
+			$post_id = $post ? $post->ID : null;
+			if ( empty( $post ) ) {
+				/**Download Image */
 
-					$content            = wp_slash( $pattern_data['content'] );
-					$image_importer_ver = $pattern_data['image_importer_ver'] ?? null;
-					if ( isset( $pattern_data['images'] ) && ! empty( $pattern_data['images'] ) ) {
-						$images = json_decode( $pattern_data['images'] );
-						if ( ! $image_importer_ver ) {
-							foreach ( $images as $key => $image ) {
-								$url  = $image->image_url;
-								$data = self::check_image_exist( $url );
-								if ( ! $data ) {
-									$data = self::handle_file( $url );
-								}
-								$content  = str_replace( $url, $data['url'], $content );
-								$image_id = $image->image_id;
-								if ( $image_id && 'null' !== $image_id ) {
-									$content = str_replace( '"imageId\":' . $image_id, '"imageId\":' . $data['id'], $content );
-								}
+				$content            = wp_slash( $pattern_data['content'] );
+				$image_importer_ver = $pattern_data['image_importer_ver'] ?? null;
+				if ( isset( $pattern_data['images'] ) && ! empty( $pattern_data['images'] ) ) {
+					$images = json_decode( $pattern_data['images'] );
+					if ( ! $image_importer_ver ) {
+						foreach ( $images as $key => $image ) {
+							$url  = $image->image_url;
+							$data = self::check_image_exist( $url );
+							if ( ! $data ) {
+								$data = self::handle_file( $url );
 							}
-						} else {
-							foreach ( $images as $key => $image ) {
-								$url     = $key;
-								$pattern = $image->pattern;
-								$data    = self::check_image_exist( $url );
-								$alt     = isset( $image->alt ) ?? '';
-								if ( ! $data ) {
-									$data = self::handle_file( $url, $alt );
+							$content  = str_replace( $url, $data['url'], $content );
+							$image_id = $image->image_id;
+							if ( $image_id && 'null' !== $image_id ) {
+								$content = str_replace( '"imageId\":' . $image_id, '"imageId\":' . $data['id'], $content );
+							}
+						}
+					} else {
+						foreach ( $images as $key => $image ) {
+							$url     = $key;
+							$pattern = $image->pattern;
+							$data    = self::check_image_exist( $url );
+							$alt     = isset( $image->alt ) ?? '';
+							if ( ! $data ) {
+								$data = self::handle_file( $url, $alt );
+							}
+							foreach ( $pattern as $p ) {
+								$placeholder_arr        = explode( '|', trim( $p, '{}' ) );
+								$placeholder_value_type = end( $placeholder_arr );
+								switch ( $placeholder_value_type ) {
+									case 'url':
+										$placeholder_data_type = $placeholder_arr[1];
+										if ( 'case2' === $placeholder_data_type ) {
+											$placeholder_data_size = $placeholder_arr[3];
+											$target                = wp_get_attachment_image_url( $data['id'], $placeholder_data_size );
+										} else {
+											$target = wp_get_attachment_url( $data['id'] );
+										}
+										break;
+									case 'id':
+									default:
+										$target = $data['id'];
+										break;
 								}
-								foreach ( $pattern as $p ) {
-									$placeholder_arr        = explode( '|', trim( $p, '{}' ) );
-									$placeholder_value_type = end( $placeholder_arr );
-									switch ( $placeholder_value_type ) {
-										case 'url':
-											$placeholder_data_type = $placeholder_arr[1];
-											if ( 'case2' === $placeholder_data_type ) {
-												$placeholder_data_size = $placeholder_arr[3];
-												$target                = wp_get_attachment_image_url( $data['id'], $placeholder_data_size );
-											} else {
-												$target = wp_get_attachment_url( $data['id'] );
-											}
-											break;
-										case 'id':
-										default:
-											$target = $data['id'];
-											break;
-									}
-									$content = str_replace( $p, $target, $content );
-								}
+								$content = str_replace( $p, $target, $content );
 							}
 						}
 					}
-					$content = $this->decode_unicode_sequences( $content );
+				}
 
+				$content   = $this->decode_unicode_sequences( $content );
+				$post_name = $block_pattern;
+
+				if ( (bool) $pattern_data['is_sync'] ) {
+					$post_name = $block_pattern . '-synced';
+				}
+
+				$existing_pattern = get_page_by_path( $post_name, OBJECT, 'wp_block' );
+
+				if ( $existing_pattern ) {
+
+					// Update existing pattern.
+					$post_id = wp_update_post(
+						array(
+							'ID'           => $existing_pattern->ID,
+							'post_title'   => $pattern_data['title'],
+							'post_content' => $content,
+							'post_status'  => 'publish',
+						)
+					);
+
+				} else {
+					// Insert new pattern.
 					$post_id = wp_insert_post(
 						array(
-							'post_name'    => $block_pattern . '-synced',
+							'post_name'    => $post_name,
 							'post_title'   => $pattern_data['title'],
 							'post_content' => $content,
 							'post_status'  => 'publish',
@@ -704,35 +731,42 @@ class Helper {
 							'post_type'    => 'wp_block',
 						)
 					);
-					if ( isset( $pattern_data['placeholder'] ) ) {
-						$inserted_content['patterns'][] = array(
-							'id'          => $post_id,
-							'is_remapped' => false,
-							'placeholder' => ! empty( $pattern_data['placeholder'] ) ? $pattern_data['placeholder'] : '',
-						);
+				}
+				if ( isset( $pattern_data['placeholder'] ) ) {
+					$inserted_content['patterns'][] = array(
+						'id'          => $post_id,
+						'is_remapped' => false,
+						'placeholder' => ! empty( $pattern_data['placeholder'] ) ? $pattern_data['placeholder'] : '',
+					);
+				}
+				if ( ! is_wp_error( $post_id ) ) {
+					$pattern_category = $pattern_data['categories'];
+					foreach ( $pattern_category as $category ) {
+						wp_set_object_terms( $post_id, $category, 'wp_pattern_category' );
 					}
-					if ( ! is_wp_error( $post_id ) ) {
-						$pattern_category = $pattern_data['categories'];
-						foreach ( $pattern_category as $category ) {
-							wp_set_object_terms( $post_id, $category, 'wp_pattern_category' );
-						}
-					}
-
+				}
+				
+				if ( (bool) $pattern_data['is_sync'] ) {
 					$pattern_data['content']  = '<!-- wp:block {"ref":' . $post_id . '} /-->';
 					$pattern_data['inserter'] = false;
 					$pattern_data['slug']     = $block_pattern;
+					$pattern_list[]           = $pattern_data;
+				} else {
+					$pattern_data['slug']     = $block_pattern;
+					$async_patterns[]         = $pattern_data;
+					update_post_meta( $post_id, 'wp_pattern_sync_status', 'unsynced' );
+				}
 
-					$pattern_list[] = $pattern_data;
-					/**Check if content has menu */
-					preg_match_all( '/"menuId":(\d+)/', $content, $matches );
-					if ( ! empty( $matches[0] ) ) {
-						$inserted_content['content_has_menus'][] = $post_id;
-					}
+				/**Check if content has menu */
+				preg_match_all( '/"menuId":(\d+)/', $content, $matches );
+				if ( ! empty( $matches[0] ) ) {
+					$inserted_content['content_has_menus'][] = $post_id;
 				}
 			}
 		}
 
 		update_option( $theme_slug . '_synced_pattern_imported', $pattern_list, false );
+		update_option( $theme_slug . '_async_pattern_imported', $async_patterns, false );
 	}
 
 	/**
@@ -1231,7 +1265,7 @@ class Helper {
 					foreach ( $pattern['placeholder'] as $key => $dummy ) {
 						$placeholder = $dummy;
 						$parts       = explode( '|', trim( $placeholder, '{}' ) );
-						$part        = $parts[2] ?? null;
+						$part        = $parts[1] ?? null;
 						$target      = isset( $merge_all_dummies[ $placeholder ] ) ? $merge_all_dummies[ $placeholder ] : '';
 						if ( 'id' !== $part ) {
 							$target = isset( $merge_all_dummies[ $placeholder ] ) ? $merge_all_dummies[ $placeholder ] : 'Placeholder';
@@ -1262,8 +1296,9 @@ class Helper {
 					/**Has Dummy */
 					foreach ( $page['placeholder'] as $key => $dummy ) {
 						$placeholder = $dummy;
-
-						$target = isset( $merge_all_dummies[ $placeholder ] ) ? $merge_all_dummies[ $placeholder ] : '';
+						$parts       = explode( '|', trim( $placeholder, '{}' ) );
+						$part        = $parts[1] ?? null;
+						$target      = isset( $merge_all_dummies[ $placeholder ] ) ? $merge_all_dummies[ $placeholder ] : '';
 						if ( 'id' !== $part ) {
 							$target = isset( $merge_all_dummies[ $placeholder ] ) ? $merge_all_dummies[ $placeholder ] : 'Placeholder';
 						}
