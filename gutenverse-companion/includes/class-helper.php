@@ -296,7 +296,7 @@ class Helper {
 		*/
 		$page_id = null;
 		$content = $this->decode_unicode_sequences( $content );
-		$content = wp_slash( $content );
+		$content = $this->escape_specific_regex_pattern( $content );
 
 		if ( 'news' === $theme_mode ) {
 			$page_id = wp_insert_post(
@@ -378,6 +378,23 @@ class Helper {
 		}
 
 		return $page_id;
+	}
+
+
+	/**
+	 * Escape specific regex pattern.
+	 *
+	 * @param string $string .
+	 * @return string
+	 */
+	public function escape_specific_regex_pattern( $string ) {
+		return preg_replace_callback(
+			'/\\\\\+\[0-9\]\+\[0-9\\\\s\\\\-\]\*/',
+			function ( $matches ) {
+				return str_replace( '\\', '\\\\', $matches[0] );
+			},
+			$string
+		);
 	}
 
 	/**
@@ -745,15 +762,14 @@ class Helper {
 						wp_set_object_terms( $post_id, $category, 'wp_pattern_category' );
 					}
 				}
-				
 				if ( (bool) $pattern_data['is_sync'] ) {
 					$pattern_data['content']  = '<!-- wp:block {"ref":' . $post_id . '} /-->';
 					$pattern_data['inserter'] = false;
 					$pattern_data['slug']     = $block_pattern;
 					$pattern_list[]           = $pattern_data;
 				} else {
-					$pattern_data['slug']     = $block_pattern;
-					$async_patterns[]         = $pattern_data;
+					$pattern_data['slug'] = $block_pattern;
+					$async_patterns[]     = $pattern_data;
 					update_post_meta( $post_id, 'wp_pattern_sync_status', 'unsynced' );
 				}
 
