@@ -4,7 +4,7 @@
  * Description: Mandatory plugin to install when installing Base themes from Gutenverse.
  * Plugin URI: https://gutenverse.com/
  * Author: Jegstudio
- * Version: 2.1.8
+ * Version: 2.1.9
  * Author URI: https://jegtheme.com/
  * License: GPLv3
  * Text Domain: gutenverse-companion
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 use Gutenverse_Companion\Init;
 
 defined( 'GUTENVERSE_COMPANION' ) || define( 'GUTENVERSE_COMPANION', 'gutenverse-companion' );
-defined( 'GUTENVERSE_COMPANION_VERSION' ) || define( 'GUTENVERSE_COMPANION_VERSION', '2.1.8' );
+defined( 'GUTENVERSE_COMPANION_VERSION' ) || define( 'GUTENVERSE_COMPANION_VERSION', '2.1.9' );
 defined( 'GUTENVERSE_COMPANION_NOTICE_VERSION' ) || define( 'GUTENVERSE_COMPANION_NOTICE_VERSION', '1.0.0' );
 defined( 'GUTENVERSE_COMPANION_NAME' ) || define( 'GUTENVERSE_COMPANION_NAME', 'Gutenverse Companion' );
 defined( 'GUTENVERSE_COMPANION_URL' ) || define( 'GUTENVERSE_COMPANION_URL', plugins_url( GUTENVERSE_COMPANION ) );

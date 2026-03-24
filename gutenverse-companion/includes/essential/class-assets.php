@@ -24,8 +24,8 @@ class Assets {
 	public function __construct() {
 		if ( ! class_exists( '\Gutenverse\Pro\License' ) ) {
 			add_action( 'gutenverse_include_frontend', array( $this, 'frontend_scripts' ), 11 );
+			add_action( 'gutenverse_include_block', array( $this, 'editor_scripts' ), 1 );
 		}
-		add_action( 'gutenverse_include_block', array( $this, 'editor_scripts' ), 1 );
 		add_filter( 'gutenverse_block_config', array( $this, 'block_config' ) );
 		add_filter( 'gutenverse_dashboard_config', array( $this, 'block_config' ) );
 	}
