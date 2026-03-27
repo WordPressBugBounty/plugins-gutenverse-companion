@@ -167,8 +167,7 @@ class Helper {
 		$theme_slug  = get_option( 'stylesheet' );
 		$active_slug = get_stylesheet();
 
-		$page_slug = sanitize_title( $title );
-		$page_slug = str_replace( '-', '_', $page_slug );
+		$page_slug = strtolower( str_replace( ' ', '_', $title ) );
 		$json_path = "{$theme_dir}/gutenverse-pages/{$page_slug}.json";
 
 		if ( ! $wp_filesystem->exists( $json_path ) ) {

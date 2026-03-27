@@ -1683,11 +1683,14 @@ class Api {
 			$demo['status']['exists']         = (bool) $wp_filesystem->is_dir( $target_dir );
 			$demo['status']['using_template'] = isset( get_option( 'gutenverse_companion_template_options' )['active_demo'] ) && get_option( 'gutenverse_companion_template_options' )['active_demo'] === $name;
 			$need_upgrade                     = false;
-			$demo_tier                        = explode( ',', $demo['tier'] );
+			if ( isset( $demo['tier'] ) ) {
+				$demo_tier = explode( ',', $demo['tier'] );
 
-			if ( isset( $demo['tier'] ) && ! in_array( $tier, $demo_tier, true ) ) {
-				$need_upgrade = true;
+				if ( isset( $demo['tier'] ) && ! in_array( $tier, $demo_tier, true ) ) {
+					$need_upgrade = true;
+				}
 			}
+
 			$phase_2                         = array( 'ultimate', 'standard', 'personal' );
 			$required_tier                   = array_values( array_diff( $demo_tier, $phase_2 ) );
 			$demo['status']['required_tier'] = $required_tier;
@@ -2049,8 +2052,8 @@ class Api {
 	 * @return string
 	 */
 	public function check_navbar( $content ) {
-		$html_blocks      = parse_blocks( $content );
-		$blocks           = _flatten_blocks( $html_blocks );
+		$html_blocks = parse_blocks( $content );
+		$blocks      = _flatten_blocks( $html_blocks );
 		$block_menus = array(
 			'gutenverse/nav-menu',
 			'gutenverse/mega-menu-item',
