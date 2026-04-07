@@ -1,6 +1,6 @@
 <?php
 /**
- * Jeg Theme Essential Style Default
+ * Gutenverse Companion Style Default
  *
  * @author Jegstudio
  * @since 1.0.0
@@ -31,10 +31,13 @@ class Style_Default extends Style_Abstract {
 		// Do nothing.
 	}
 
+
 	/**
 	 * The Constructor
+	 *
+	 * @param array $attrs Block attributes.
 	 */
-	public function __construct() {
+	public function __construct( $attrs ) {
 		$directory = apply_filters( 'gutenverse_companion_essential_assets_directory', false );
 		/**
 		 * 'jeg_theme_essential_assets_directory' deprecated since version 1.0.1 Use 'gutenverse_companion_essential_assets_directory' instead.
@@ -45,7 +48,10 @@ class Style_Default extends Style_Abstract {
 		if ( $directory ) {
 			$this->block_dir = $directory . '/block/essential/';
 		}
+
+		parent::__construct( $attrs );
 	}
+
 	/**
 	 * Handle Transform.
 	 *

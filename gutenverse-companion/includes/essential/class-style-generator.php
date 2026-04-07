@@ -31,6 +31,7 @@ class Style_Generator {
 		add_action( 'gutenverse_generated_style', array( $this, 'generate_text_child_style' ), 30 );
 		add_action( 'gutenverse_section_style', array( $this, 'section_sticky' ) );
 		add_action( 'gutenverse_column_style', array( $this, 'column_sticky' ) );
+		add_action( 'gutenverse_container_style', array( $this, 'container_sticky' ) );
 		add_action( 'gutenverse_form_builder_style', array( $this, 'form_builder_sticky' ) );
 		add_filter( 'gutenverse_block_style_instance', array( $this, 'get_block_style_instance' ), 32, 3 );
 	}
@@ -50,6 +51,104 @@ class Style_Generator {
 		}
 
 		return $flag;
+	}
+
+	/**
+	 * Sticky Container.
+	 *
+	 * @param Style_Interface $instance Instance of style.
+	 */
+	public function container_sticky( $instance ) {
+		$attrs      = $instance->get_attributes();
+		$element_id = $instance->get_element_id();
+
+		if ( $this->can_render_sticky( $attrs['sticky'] ) ) {
+			if ( isset( $attrs['stickyPosition'] ) ) {
+				if ( 'top' === $attrs['stickyPosition'] && isset( $attrs['topSticky'] ) ) {
+					$instance->inject_style(
+						array(
+							'selector'       => ".guten-flex-container.{$element_id}.pinned",
+							'property'       => function ( $value ) use ( $instance ) {
+								return $instance->handle_unit_point( $value, 'top' );
+							},
+							'value'          => $attrs['topSticky'],
+							'device_control' => true,
+							'ignore_empty'   => true,
+						)
+					);
+
+					$instance->inject_style(
+						array(
+							'selector'       => ".guten-flex-container.{$element_id}.pinned",
+							'property'       => function ( $value, $device ) use ( $instance, $attrs ) {
+								if ( isset( $attrs['sticky'][ $device ] ) ) {
+									return $instance->handle_unit_point( $value, 'top' );
+								}
+								return '';
+							},
+							'value'          => $attrs['topSticky'],
+							'device_control' => true,
+							'ignore_empty'   => true,
+						)
+					);
+				}
+
+				if ( 'bottom' === $attrs['stickyPosition'] && isset( $attrs['bottomSticky'] ) ) {
+					$instance->inject_style(
+						array(
+							'selector'       => ".guten-flex-container.{$element_id}.pinned",
+							'property'       => function ( $value, $device ) use ( $instance, $attrs ) {
+								if ( $attrs['sticky'][ $device ] ) {
+									return $instance->handle_unit_point( $value, 'bottom' );
+								}
+								return '';
+							},
+							'value'          => $attrs['bottomSticky'],
+							'device_control' => true,
+						)
+					);
+				}
+			}
+
+			if ( isset( $attrs['stickyIndex'] ) ) {
+				$instance->inject_style(
+					array(
+						'selector'       => ".guten-flex-container.{$element_id}.pinned",
+						'property'       => function ( $value ) {
+							return "z-index: {$value};";
+						},
+						'value'          => $attrs['stickyIndex'],
+						'device_control' => false,
+					)
+				);
+			}
+
+			if ( isset( $attrs['stickyBackground'] ) ) {
+				$instance->inject_style(
+					array(
+						'selector'       => ".guten-flex-container.{$element_id}.pinned",
+						'property'       => function ( $value ) use ( $instance ) {
+							return $instance->handle_color( $value, 'background-color' );
+						},
+						'value'          => $attrs['stickyBackground'],
+						'device_control' => false,
+					)
+				);
+			}
+
+			if ( isset( $attrs['stickyBoxShadow'] ) ) {
+				$instance->inject_style(
+					array(
+						'selector'       => ".guten-flex-container.{$element_id}.pinned",
+						'property'       => function ( $value ) use ( $instance ) {
+							return $instance->handle_box_shadow( $value );
+						},
+						'value'          => $attrs['stickyBoxShadow'],
+						'device_control' => false,
+					)
+				);
+			}
+		}
 	}
 	/**
 	 * Filter Generated Style
@@ -922,6 +1021,7 @@ class Style_Generator {
 				break;
 			case 'gutenverse-pro/advance-tabs':
 				$instance = new Advance_Tabs( $attrs );
+				gutenverse_rlog($instance);
 				break;
 
 		}

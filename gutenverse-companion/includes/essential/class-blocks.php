@@ -35,10 +35,17 @@ class Blocks {
 			$directory = apply_filters( 'jeg_theme_essential_assets_directory', false );
 		}
 		if ( $directory ) {
-			register_block_type( $directory . '/block/mega-menu/block.json' );
-			register_block_type( $directory . '/block/mega-menu-item/block.json' );
-			register_block_type( $directory . '/block/advance-tabs/block.json' );
-			register_block_type( $directory . '/block/advance-tab/block.json' );
+			if ( is_dir( $directory . '/block/essential/' ) ) {
+				register_block_type( $directory . '/block/essential/mega-menu/block.json' );
+				register_block_type( $directory . '/block/essential/mega-menu-item/block.json' );
+				register_block_type( $directory . '/block/essential/advance-tabs/block.json' );
+				register_block_type( $directory . '/block/essential/advance-tab/block.json' );
+			} else {
+				register_block_type( $directory . '/block/mega-menu/block.json' );
+				register_block_type( $directory . '/block/mega-menu-item/block.json' );
+				register_block_type( $directory . '/block/advance-tabs/block.json' );
+				register_block_type( $directory . '/block/advance-tab/block.json' );
+			}
 		}
 	}
 }
