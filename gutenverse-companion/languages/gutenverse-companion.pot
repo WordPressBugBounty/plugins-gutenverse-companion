@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Gutenverse Companion 2.3.0\n"
+"Project-Id-Version: Gutenverse Companion 2.3.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/gutenverse-companion\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-04-07T08:14:37+00:00\n"
+"POT-Creation-Date: 2026-04-14T02:26:54+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.9.0\n"
 "X-Domain: gutenverse-companion\n"
@@ -50,8 +50,12 @@ msgstr ""
 #: includes/class-api.php:342
 #: includes/class-api.php:362
 #: includes/gutenverse-theme/class-gutenverse-theme.php:288
-#: includes/gutenverse-theme/class-gutenverse-theme.php:308
-#: includes/gutenverse-theme/class-gutenverse-theme.php:328
+#: includes/gutenverse-theme/class-gutenverse-theme.php:310
+#: includes/gutenverse-theme/class-gutenverse-theme.php:330
+#: includes/gutenverse-theme/class-gutenverse-theme.php:350
+#: includes/gutenverse-theme/class-gutenverse-theme.php:370
+#: includes/gutenverse-theme/class-gutenverse-theme.php:390
+#: includes/gutenverse-theme/class-gutenverse-theme.php:410
 #: includes/lite-plus/class-lite-plus-theme.php:245
 #: includes/lite-plus/class-lite-plus-theme.php:267
 #: includes/lite-plus/class-lite-plus-theme.php:287

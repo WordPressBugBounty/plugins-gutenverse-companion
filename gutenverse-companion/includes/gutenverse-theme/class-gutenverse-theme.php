@@ -297,6 +297,28 @@ class Gutenverse_Theme {
 
 		register_rest_route(
 			self::ENDPOINT,
+			'pages/assign-news',
+			array(
+				'methods'             => 'POST',
+				'callback'            => function ( $request ) use ( $helper ) {
+					return $helper->handle_pages( $request, false );
+				},
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
 			'import/menus',
 			array(
 				'methods'             => 'GET',
@@ -317,10 +339,70 @@ class Gutenverse_Theme {
 
 		register_rest_route(
 			self::ENDPOINT,
+			'import/posts',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $helper, 'import_posts' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'assign/remapping',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $helper, 'remapping_content_placeholder' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
 			'install/plugins',
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $helper, 'install_plugin' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'delete/posts-dummies',
+			array(
+				'methods'             => 'DELETE',
+				'callback'            => array( $helper, 'delete_dummies' ),
 				'permission_callback' => function () {
 					if ( ! current_user_can( 'manage_options' ) ) {
 						return new WP_Error(

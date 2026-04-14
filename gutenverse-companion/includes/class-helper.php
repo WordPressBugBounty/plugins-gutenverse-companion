@@ -162,6 +162,9 @@ class Helper {
 		}
 
 		$theme_mode  = apply_filters( 'gutenverse_plus_mechanism_content_type', 'normal' );
+		if ( 'normal' === $theme_mode ) {
+			$theme_mode = apply_filters( 'gutenverse_jegtheme_theme_type', 'normal' );
+		}
 		$theme_dir   = get_template_directory();
 		$theme_url   = get_template_directory_uri();
 		$theme_slug  = get_option( 'stylesheet' );
@@ -799,6 +802,11 @@ class Helper {
 			WP_Filesystem();
 
 			$type = apply_filters( 'gutenverse_plus_mechanism_content_type', 'normal' );
+
+			if ( 'normal' === $type ) {
+				$type = apply_filters( 'gutenverse_jegtheme_theme_type', 'normal' );
+			}
+
 			if ( ! in_array( $type, array( 'news' ), false ) ) {
 				return new WP_REST_Response(
 					array(
