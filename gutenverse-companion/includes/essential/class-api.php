@@ -41,6 +41,8 @@ class Api {
 	}
 	/**
 	 * Essence Proxy
+	 *
+	 * @param \WP_REST_Request $request .
 	 */
 	public function essence_proxy( $request ) {
 		$url      = gutenverse_esc_data( $request->get_param( 'url' ) );

@@ -88,7 +88,7 @@ class Helper {
 				$attach_data = wp_generate_attachment_metadata( $attach_id, $file_loc );
 				wp_update_attachment_metadata( $attach_id, $attach_data );
 			} catch ( \Exception $e ) {
-				// none.
+				gutenverse_rlog( $e->getMessage() );
 			}
 
 			return array(
@@ -178,9 +178,24 @@ class Helper {
 		}
 
 		$page = json_decode( $wp_filesystem->get_contents( $json_path ), true );
+
 		if ( empty( $page ) ) {
 			return new \WP_Error( 'invalid_json', 'Invalid page JSON.' );
 		}
+
+		$inserted_dummies = get_option(
+			'gutenverse_' . $active_slug . '_dummy_inserted',
+			array(
+				'posts'                => array(),
+				'posts-dummies'        => array(),
+				'category'             => array(),
+				'category-dummies'     => array(),
+				'post_tag'             => array(),
+				'post_tag-dummies'     => array(),
+				'post_content_images'  => array(),
+				'post_featured_images' => array(),
+			)
+		);
 
 		$inserted_content = get_option(
 			"gutenverse_{$active_slug}_content_inserted",
@@ -297,6 +312,7 @@ class Helper {
 		* --------------------
 		*/
 		$page_id = null;
+
 		$content = $this->decode_unicode_sequences( $content );
 		$content = $this->escape_specific_regex_pattern( $content );
 
@@ -375,6 +391,16 @@ class Helper {
 			update_option(
 				"gutenverse_{$active_slug}_content_inserted",
 				$inserted_content,
+				false
+			);
+
+			/* Register dummy mapping */
+			$inserted_dummies['posts'][ '{page|id|' . $page['pageName'] . '}' ]    = $page_id;
+			$inserted_dummies['posts'][ '{page|title|' . $page['pageName'] . '}' ] = $page['pagetitle'];
+
+			update_option(
+				"gutenverse_{$active_slug}_dummy_inserted",
+				$inserted_dummies,
 				false
 			);
 		}
@@ -718,6 +744,7 @@ class Helper {
 				}
 
 				$content   = $this->decode_unicode_sequences( $content );
+				$content   = $this->pattern_fix_content_attribute_value( $content );
 				$post_name = $block_pattern;
 
 				if ( (bool) $pattern_data['is_sync'] ) {
@@ -725,9 +752,7 @@ class Helper {
 				}
 
 				$existing_pattern = get_page_by_path( $post_name, OBJECT, 'wp_block' );
-
 				if ( $existing_pattern ) {
-
 					// Update existing pattern.
 					$post_id = wp_update_post(
 						array(
@@ -785,6 +810,76 @@ class Helper {
 
 		update_option( $theme_slug . '_synced_pattern_imported', $pattern_list, false );
 		update_option( $theme_slug . '_async_pattern_imported', $async_patterns, false );
+	}
+
+	/**
+	 * Pattern fix content attribute value.
+	 *
+	 * @param string $content .
+	 *
+	 * @return string
+	 */
+	public function pattern_fix_content_attribute_value( $content ) {
+		$content = html_entity_decode( stripslashes( $content ), ENT_QUOTES );
+		$blocks  = parse_blocks( $content );
+		$this->process_blocks( $blocks );
+		$content = serialize_blocks( $blocks );
+
+		return $content;
+	}
+
+	/**
+	 * Process blocks for dinamic.
+	 *
+	 * @param array $blocks .
+	 */
+	public function process_blocks( &$blocks ) {
+
+		foreach ( $blocks as &$block ) {
+
+			if ( ! empty( $block['attrs'] ) ) {
+				self::extract_and_replace_dinamic_content_pattern(
+					$block['attrs'],
+				);
+			}
+
+			if ( ! empty( $block['innerBlocks'] ) ) {
+				self::process_blocks(
+					$block['innerBlocks'],
+				);
+			}
+		}
+	}
+
+	/**
+	 * Extract and replace dinamic content.
+	 *
+	 * @param array $data .
+	 */
+	public function extract_and_replace_dinamic_content_pattern( &$data ) {
+		$attribute_names = array(
+			'dynamicDataList',
+			'textDynamicList',
+			'focusTextDynamicList',
+			'subTextDynamicList',
+			'titleDynamicList',
+			'descriptionDynamicList',
+			'badgeDynamicList',
+			'nameDynamicList',
+			'jobDynamicList',
+		);
+
+		foreach ( $data as $key => &$value ) {
+			if ( in_array( $key, $attribute_names, true ) ) {
+				foreach ( $value as &$value1 ) {
+					foreach ( $value1 as $value2_key => &$value2 ) {
+						if ( 'value' === $value2_key ) {
+							$value2 = str_replace( '"', "'", $value2 );
+						}
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -1273,7 +1368,10 @@ class Helper {
 				)
 			);
 
-			$merge_all_dummies = array_merge( $inserted_dummies['posts'], $inserted_dummies['category'], $inserted_dummies['post_tag'] );
+			$merge_all_dummies                    = array_merge( $inserted_dummies['posts'], $inserted_dummies['category'], $inserted_dummies['post_tag'] );
+			$current_user                         = wp_get_current_user();
+			$merge_all_dummies['{author|id|1}']   = $current_user->ID;
+			$merge_all_dummies['{author|name|1}'] = $current_user->display_name;
 			/**Remap Patterns */
 			$inserted_patterns = $inserted_content['patterns'];
 			foreach ( $inserted_patterns as &$pattern ) {
