@@ -161,7 +161,7 @@ class Helper {
 			return new \WP_Error( 'missing_title', 'Page title is required.' );
 		}
 
-		$theme_mode  = apply_filters( 'gutenverse_plus_mechanism_content_type', 'normal' );
+		$theme_mode = apply_filters( 'gutenverse_plus_mechanism_content_type', 'normal' );
 		if ( 'normal' === $theme_mode ) {
 			$theme_mode = apply_filters( 'gutenverse_jegtheme_theme_type', 'normal' );
 		}
@@ -312,11 +312,20 @@ class Helper {
 		* --------------------
 		*/
 		$page_id = null;
-
-		$content = $this->decode_unicode_sequences( $content );
+		$content = $this->pattern_fix_content_attribute_value( $content );
 		$content = $this->escape_specific_regex_pattern( $content );
-
+		
 		if ( 'news' === $theme_mode ) {
+			// Step 1: Ensure at least one backslash.
+			$content = preg_replace( '/(?<!\\\\)u([0-9a-fA-F]{4})/', '\\\\u$1', $content );
+
+			$content = preg_replace_callback(
+				'/\\\\{1,3}u([0-9a-fA-F]{4})/',
+				function ( $m ) {
+					return '\\\\\\\\u' . $m[1]; // always 4 slashes.
+				},
+				$content
+			);
 			$page_id = wp_insert_post(
 				array(
 					'post_title'    => $page['pagetitle'],
@@ -334,6 +343,16 @@ class Helper {
 					'name'           => sanitize_title( $page['pagetitle'] ),
 					'posts_per_page' => 1,
 				)
+			);
+			// Step 1: Ensure at least one backslash.
+			$content = preg_replace( '/(?<!\\\\)u([0-9a-fA-F]{4})/', '\\\\u$1', $content );
+
+			$content = preg_replace_callback(
+				'/\\\\{1,3}u([0-9a-fA-F]{4})/',
+				function ( $m ) {
+					return '\\\\\\u' . $m[1]; // always 4 slashes.
+				},
+				$content
 			);
 
 			if ( $query->have_posts() ) {
@@ -395,8 +414,13 @@ class Helper {
 			);
 
 			/* Register dummy mapping */
-			$inserted_dummies['posts'][ '{page|id|' . $page['pageName'] . '}' ]    = $page_id;
-			$inserted_dummies['posts'][ '{page|title|' . $page['pageName'] . '}' ] = $page['pagetitle'];
+			if ( isset( $page['pageName'] ) ) {
+				$inserted_dummies['posts'][ '{page|id|' . $page['pageName'] . '}' ]    = $page_id;
+				$inserted_dummies['posts'][ '{page|title|' . $page['pageName'] . '}' ] = $page['pagetitle'];
+			} else {
+				$inserted_dummies['posts'][ '{page|id|' . $slug . '}' ]    = $page_id;
+				$inserted_dummies['posts'][ '{page|title|' . $slug . '}' ] = $page['pagetitle'];
+			}
 
 			update_option(
 				"gutenverse_{$active_slug}_dummy_inserted",
@@ -683,128 +707,125 @@ class Helper {
 		if ( ! $async_patterns ) {
 			$async_patterns = array();
 		}
-
 		foreach ( $patterns as $block_pattern ) {
 			$pattern_file = get_theme_file_path( '/inc/patterns/' . $block_pattern . '.php' );
 			$pattern_data = require $pattern_file;
 
 			$post    = get_page_by_path( $block_pattern . '-synced', OBJECT, 'wp_block' );
 			$post_id = $post ? $post->ID : null;
-			if ( empty( $post ) ) {
-				/**Download Image */
+			/**Download Image */
 
-				$content            = wp_slash( $pattern_data['content'] );
-				$image_importer_ver = $pattern_data['image_importer_ver'] ?? null;
-				if ( isset( $pattern_data['images'] ) && ! empty( $pattern_data['images'] ) ) {
-					$images = json_decode( $pattern_data['images'] );
-					if ( ! $image_importer_ver ) {
-						foreach ( $images as $key => $image ) {
-							$url  = $image->image_url;
-							$data = self::check_image_exist( $url );
-							if ( ! $data ) {
-								$data = self::handle_file( $url );
-							}
-							$content  = str_replace( $url, $data['url'], $content );
-							$image_id = $image->image_id;
-							if ( $image_id && 'null' !== $image_id ) {
-								$content = str_replace( '"imageId\":' . $image_id, '"imageId\":' . $data['id'], $content );
-							}
+			$content            = wp_slash( $pattern_data['content'] );
+			$image_importer_ver = $pattern_data['image_importer_ver'] ?? null;
+			if ( isset( $pattern_data['images'] ) && ! empty( $pattern_data['images'] ) ) {
+				$images = json_decode( $pattern_data['images'] );
+				if ( ! $image_importer_ver ) {
+					foreach ( $images as $key => $image ) {
+						$url  = $image->image_url;
+						$data = self::check_image_exist( $url );
+						if ( ! $data ) {
+							$data = self::handle_file( $url );
 						}
-					} else {
-						foreach ( $images as $key => $image ) {
-							$url     = $key;
-							$pattern = $image->pattern;
-							$data    = self::check_image_exist( $url );
-							$alt     = isset( $image->alt ) ?? '';
-							if ( ! $data ) {
-								$data = self::handle_file( $url, $alt );
+						$content  = str_replace( $url, $data['url'], $content );
+						$image_id = $image->image_id;
+						if ( $image_id && 'null' !== $image_id ) {
+							$content = str_replace( '"imageId\":' . $image_id, '"imageId\":' . $data['id'], $content );
+						}
+					}
+				} else {
+					foreach ( $images as $key => $image ) {
+						$url     = $key;
+						$pattern = $image->pattern;
+						$data    = self::check_image_exist( $url );
+						$alt     = isset( $image->alt ) ?? '';
+						if ( ! $data ) {
+							$data = self::handle_file( $url, $alt );
+						}
+						foreach ( $pattern as $p ) {
+							$placeholder_arr        = explode( '|', trim( $p, '{}' ) );
+							$placeholder_value_type = end( $placeholder_arr );
+							switch ( $placeholder_value_type ) {
+								case 'url':
+									$placeholder_data_type = $placeholder_arr[1];
+									if ( 'case2' === $placeholder_data_type ) {
+										$placeholder_data_size = $placeholder_arr[3];
+										$target                = wp_get_attachment_image_url( $data['id'], $placeholder_data_size );
+									} else {
+										$target = wp_get_attachment_url( $data['id'] );
+									}
+									break;
+								case 'id':
+								default:
+									$target = $data['id'];
+									break;
 							}
-							foreach ( $pattern as $p ) {
-								$placeholder_arr        = explode( '|', trim( $p, '{}' ) );
-								$placeholder_value_type = end( $placeholder_arr );
-								switch ( $placeholder_value_type ) {
-									case 'url':
-										$placeholder_data_type = $placeholder_arr[1];
-										if ( 'case2' === $placeholder_data_type ) {
-											$placeholder_data_size = $placeholder_arr[3];
-											$target                = wp_get_attachment_image_url( $data['id'], $placeholder_data_size );
-										} else {
-											$target = wp_get_attachment_url( $data['id'] );
-										}
-										break;
-									case 'id':
-									default:
-										$target = $data['id'];
-										break;
-								}
-								$content = str_replace( $p, $target, $content );
-							}
+							$content = str_replace( $p, $target, $content );
 						}
 					}
 				}
+			}
 
-				$content   = $this->decode_unicode_sequences( $content );
-				$content   = $this->pattern_fix_content_attribute_value( $content );
-				$post_name = $block_pattern;
+			$content = $this->pattern_fix_content_attribute_value( $content );
+			$content = $this->escape_specific_regex_pattern( $content );
+			$content = $this->decode_unicode_sequences( $content );
 
-				if ( (bool) $pattern_data['is_sync'] ) {
-					$post_name = $block_pattern . '-synced';
-				}
+			$post_name = $block_pattern;
+			if ( (bool) $pattern_data['is_sync'] ) {
+				$post_name = $block_pattern . '-synced';
+			}
 
-				$existing_pattern = get_page_by_path( $post_name, OBJECT, 'wp_block' );
-				if ( $existing_pattern ) {
-					// Update existing pattern.
-					$post_id = wp_update_post(
-						array(
-							'ID'           => $existing_pattern->ID,
-							'post_title'   => $pattern_data['title'],
-							'post_content' => $content,
-							'post_status'  => 'publish',
-						)
-					);
-
-				} else {
-					// Insert new pattern.
-					$post_id = wp_insert_post(
-						array(
-							'post_name'    => $post_name,
-							'post_title'   => $pattern_data['title'],
-							'post_content' => $content,
-							'post_status'  => 'publish',
-							'post_author'  => 1,
-							'post_type'    => 'wp_block',
-						)
-					);
+			$existing_pattern = get_page_by_path( $post_name, OBJECT, 'wp_block' );
+			if ( $existing_pattern ) {
+				// Update existing pattern.
+				$post_id = wp_update_post(
+					array(
+						'ID'           => $existing_pattern->ID,
+						'post_title'   => $pattern_data['title'],
+						'post_content' => $content,
+						'post_status'  => 'publish',
+					)
+				);
+			} else {
+				// Insert new pattern.
+				$post_id = wp_insert_post(
+					array(
+						'post_name'    => $post_name,
+						'post_title'   => $pattern_data['title'],
+						'post_content' => $content,
+						'post_status'  => 'publish',
+						'post_author'  => 1,
+						'post_type'    => 'wp_block',
+					)
+				);
+			}
+			if ( isset( $pattern_data['placeholder'] ) ) {
+				$inserted_content['patterns'][] = array(
+					'id'          => $post_id,
+					'is_remapped' => false,
+					'placeholder' => ! empty( $pattern_data['placeholder'] ) ? $pattern_data['placeholder'] : '',
+				);
+			}
+			if ( ! is_wp_error( $post_id ) ) {
+				$pattern_category = $pattern_data['categories'];
+				foreach ( $pattern_category as $category ) {
+					wp_set_object_terms( $post_id, $category, 'wp_pattern_category' );
 				}
-				if ( isset( $pattern_data['placeholder'] ) ) {
-					$inserted_content['patterns'][] = array(
-						'id'          => $post_id,
-						'is_remapped' => false,
-						'placeholder' => ! empty( $pattern_data['placeholder'] ) ? $pattern_data['placeholder'] : '',
-					);
-				}
-				if ( ! is_wp_error( $post_id ) ) {
-					$pattern_category = $pattern_data['categories'];
-					foreach ( $pattern_category as $category ) {
-						wp_set_object_terms( $post_id, $category, 'wp_pattern_category' );
-					}
-				}
-				if ( (bool) $pattern_data['is_sync'] ) {
-					$pattern_data['content']  = '<!-- wp:block {"ref":' . $post_id . '} /-->';
-					$pattern_data['inserter'] = false;
-					$pattern_data['slug']     = $block_pattern;
-					$pattern_list[]           = $pattern_data;
-				} else {
-					$pattern_data['slug'] = $block_pattern;
-					$async_patterns[]     = $pattern_data;
-					update_post_meta( $post_id, 'wp_pattern_sync_status', 'unsynced' );
-				}
+			}
+			if ( (bool) $pattern_data['is_sync'] ) {
+				$pattern_data['content']  = '<!-- wp:block {"ref":' . $post_id . '} /-->';
+				$pattern_data['inserter'] = false;
+				$pattern_data['slug']     = $block_pattern;
+				$pattern_list[]           = $pattern_data;
+			} else {
+				$pattern_data['slug'] = $block_pattern;
+				$async_patterns[]     = $pattern_data;
+				update_post_meta( $post_id, 'wp_pattern_sync_status', 'unsynced' );
+			}
 
 				/**Check if content has menu */
 				preg_match_all( '/"menuId":(\d+)/', $content, $matches );
-				if ( ! empty( $matches[0] ) ) {
-					$inserted_content['content_has_menus'][] = $post_id;
-				}
+			if ( ! empty( $matches[0] ) ) {
+				$inserted_content['content_has_menus'][] = $post_id;
 			}
 		}
 
@@ -820,11 +841,11 @@ class Helper {
 	 * @return string
 	 */
 	public function pattern_fix_content_attribute_value( $content ) {
-		$content = html_entity_decode( stripslashes( $content ), ENT_QUOTES );
+		// $content = preg_replace( '/(?<!\\\\)u([0-9a-fA-F]{4})/', '\\\\u$1', $content );
+		$content = html_entity_decode( stripslashes( $content ), ENT_NOQUOTES );
 		$blocks  = parse_blocks( $content );
 		$this->process_blocks( $blocks );
 		$content = serialize_blocks( $blocks );
-
 		return $content;
 	}
 
@@ -869,15 +890,30 @@ class Helper {
 			'jobDynamicList',
 		);
 
+		$attribute_content = array(
+			'title',
+			'content',
+			'text',
+			'focusText',
+			'subText',
+			'description',
+			'badge',
+			'name',
+			'job',
+		);
 		foreach ( $data as $key => &$value ) {
 			if ( in_array( $key, $attribute_names, true ) ) {
 				foreach ( $value as &$value1 ) {
 					foreach ( $value1 as $value2_key => &$value2 ) {
 						if ( 'value' === $value2_key ) {
+
 							$value2 = str_replace( '"', "'", $value2 );
 						}
 					}
 				}
+			}
+			if ( in_array( $key, $attribute_content, true ) ) {
+				$value = str_replace( '"', "'", $value );
 			}
 		}
 	}
@@ -1481,7 +1517,7 @@ class Helper {
 			$keys              = array(
 				'posts-dummies',
 				'category-dummies',
-				'tag-dummies',
+				'post_tag-dummies',
 				'post_content_images',
 				'post_featured_images',
 			);
