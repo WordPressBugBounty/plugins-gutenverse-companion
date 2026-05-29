@@ -194,7 +194,10 @@ class Init {
 	 * @return mixed
 	 */
 	public function is_change_stylesheet_directory() {
-		return (bool) get_option( 'gutenverse_companion_template_options' ) && isset( get_option( 'gutenverse_companion_template_options' )['active_theme'] ) && wp_get_theme()->get_template() === get_option( 'gutenverse_companion_template_options' )['active_theme'];
+		if ( apply_filters( 'gutenverse_companion_base_theme', false ) ) {
+			return (bool) get_option( 'gutenverse_companion_template_options' ) && isset( get_option( 'gutenverse_companion_template_options' )['active_theme'] ) && wp_get_theme()->get_template() === get_option( 'gutenverse_companion_template_options' )['active_theme'];
+		}
+		return true;
 	}
 
 	/**
