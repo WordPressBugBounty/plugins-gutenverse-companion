@@ -279,7 +279,7 @@ class Api {
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'save_site_settings' ),
 				'permission_callback' => function () {
-					if ( ! current_user_can( 'manage_options' ) && current_user_can( 'upload_files' ) ) {
+					if ( ! current_user_can( 'manage_options' ) ) {
 						return new \WP_Error(
 							'forbidden_permission',
 							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
