@@ -84,7 +84,6 @@ class Init {
 			$this->style_generator = new Style_Generator();
 		}
 		$this->assets = new Assets();
-		$this->api    = new Api();
 	}
 
 	/**
