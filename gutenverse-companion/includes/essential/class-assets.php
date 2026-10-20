@@ -80,9 +80,9 @@ class Assets {
 	/**
 	 * Load the font icon
 	 *
-	 * @param mixed  $conditions The value from the attributes array.
-	 * @param string $attrs The comparison operator (e.g., '===', '!==').
-	 * @param mixed  $block_name The value to compare against.
+	 * @param array $conditions Value of data need to be loaded.
+	 * @param array $attrs The value from the attributes array.
+	 * @param mixed $block_name The value to compare against.
 	 *
 	 * @since 2.3.2
 	 */
@@ -178,13 +178,7 @@ class Assets {
 				true
 			);
 
-			// Register & Enqueue Style.
-			wp_enqueue_style(
-				'gutenverse-companion-frontend-block',
-				$url . '/css/essential/frontend-essential.css',
-				array( 'gutenverse-frontend-style' ),
-				GUTENVERSE_COMPANION_VERSION
-			);
+			$this->enqueue_frontend_block_style( $url, $directory );
 		}
 	}
 
@@ -214,7 +208,10 @@ class Assets {
 				$url . '/js/essential/profrontend.js',
 				array(),
 				GUTENVERSE_COMPANION_VERSION,
-				true
+				array(
+					'in_footer' => true,
+					'strategy'  => 'defer',
+				)
 			);
 
 			$frontend_include = ( include_once $directory . '/dependencies/essential/frontend.asset.php' )['dependencies'];
@@ -224,16 +221,13 @@ class Assets {
 				$url . '/js/essential/frontend.js',
 				$frontend_include,
 				GUTENVERSE_COMPANION_VERSION,
-				true
+				array(
+					'in_footer' => true,
+					'strategy'  => 'defer',
+				)
 			);
 
-			// Register & Enqueue Style.
-			wp_enqueue_style(
-				'gutenverse-companion-frontend-block',
-				$url . '/css/essential/frontend-essential.css',
-				array( 'gutenverse-frontend-style' ),
-				GUTENVERSE_COMPANION_VERSION
-			);
+			$this->enqueue_frontend_block_style( $url, $directory );
 
 			$scripts = array(
 				// scripts below.
@@ -250,7 +244,10 @@ class Assets {
 					$url . '/js/essential/' . $name . '.js',
 					$include,
 					GUTENVERSE_COMPANION_VERSION,
-					true
+					array(
+						'in_footer' => true,
+						'strategy'  => 'defer',
+					)
 				);
 			}
 
@@ -270,7 +267,10 @@ class Assets {
 					$url . '/js/essential/' . $name . '.js',
 					$include,
 					GUTENVERSE_COMPANION_VERSION,
-					true
+					array(
+						'in_footer' => true,
+						'strategy'  => 'defer',
+					)
 				);
 			}
 			// for settings.
@@ -326,12 +326,7 @@ class Assets {
 				GUTENVERSE_COMPANION_VERSION
 			);
 
-			wp_enqueue_style(
-				'gutenverse-companion-frontend-block',
-				$url . '/css/essential/frontend-essential.css',
-				array( 'gutenverse-frontend-style' ),
-				GUTENVERSE_COMPANION_VERSION
-			);
+			$this->enqueue_frontend_block_style( $url, $directory );
 
 			wp_enqueue_script(
 				'gutenverse-companion-blocks',
@@ -382,6 +377,29 @@ class Assets {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Register and enqueue the frontend block style with filesystem path metadata.
+	 *
+	 * @param string $url Assets URL.
+	 * @param string $directory Assets filesystem directory.
+	 */
+	private function enqueue_frontend_block_style( $url, $directory ) {
+		wp_register_style(
+			'gutenverse-companion-frontend-block',
+			$url . '/css/essential/frontend-essential.css',
+			array( 'gutenverse-frontend-style' ),
+			GUTENVERSE_COMPANION_VERSION
+		);
+
+		wp_style_add_data(
+			'gutenverse-companion-frontend-block',
+			'path',
+			$directory . '/css/essential/frontend-essential.css'
+		);
+
+		wp_enqueue_style( 'gutenverse-companion-frontend-block' );
 	}
 
 	/**

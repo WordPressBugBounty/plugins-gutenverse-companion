@@ -68,12 +68,20 @@ class Gutenverse_Theme {
 
 		// If not full width, enqueue a custom CSS to make it full width.
 		if ( ! $is_full_width ) {
-			wp_enqueue_style(
+			wp_register_style(
 				'gutenverse-overwrite-layout',
 				GUTENVERSE_COMPANION_URL . '/assets/css/companion-overwrite-layout.css',
 				array(),
 				GUTENVERSE_COMPANION_VERSION
 			);
+
+			wp_style_add_data(
+				'gutenverse-overwrite-layout',
+				'path',
+				GUTENVERSE_COMPANION_DIR . 'assets/css/companion-overwrite-layout.css'
+			);
+
+			wp_enqueue_style( 'gutenverse-overwrite-layout' );
 		}
 	}
 
@@ -323,6 +331,26 @@ class Gutenverse_Theme {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $helper, 'handle_menus' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'import/options',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $helper, 'import_options' ),
 				'permission_callback' => function () {
 					if ( ! current_user_can( 'manage_options' ) ) {
 						return new WP_Error(

@@ -296,6 +296,26 @@ class Lite_Plus_Theme {
 
 		register_rest_route(
 			self::ENDPOINT,
+			'import/options',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $helper, 'import_options' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
 			'import/posts',
 			array(
 				'methods'             => 'GET',

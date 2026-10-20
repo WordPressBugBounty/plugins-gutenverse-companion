@@ -134,6 +134,26 @@ class Api {
 
 		register_rest_route(
 			self::ENDPOINT,
+			'plugin/clear-activation-redirect',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'clear_plugin_activation_redirect' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new \WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
 			'demo/assign',
 			array(
 				'methods'             => 'POST',
@@ -238,6 +258,29 @@ class Api {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this, 'import_menus' ),
+				'permission_callback' => function () {
+					if ( ! current_user_can( 'manage_options' ) ) {
+						return new \WP_Error(
+							'forbidden_permission',
+							esc_html__( 'Forbidden Access', 'gutenverse-companion' ),
+							array( 'status' => 403 )
+						);
+					}
+
+					return true;
+				},
+			)
+		);
+
+		register_rest_route(
+			self::ENDPOINT,
+			'import/posts',
+			array(
+				'methods'             => 'POST',
+				'callback'            => function ( $request ) {
+					$helper = new Helper();
+					return $helper->import_posts( $request );
+				},
 				'permission_callback' => function () {
 					if ( ! current_user_can( 'manage_options' ) ) {
 						return new \WP_Error(
@@ -1196,6 +1239,26 @@ class Api {
 			200
 		);
 	}
+
+	/**
+	 * Clear plugin activation redirect transient.
+	 *
+	 * Prevents plugin onboarding wizards from hijacking the next admin page
+	 * after activation from the setup wizard.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function clear_plugin_activation_redirect() {
+		delete_transient( 'gutenverse_redirect' );
+
+		return new WP_REST_Response(
+			array(
+				'success' => true,
+			),
+			200
+		);
+	}
+
 	/**
 	 * Import Demo
 	 *
@@ -1938,6 +2001,7 @@ class Api {
 
 		$content    = $this->check_navbar( $content );
 		$content    = str_replace( "\'", "'", $content );
+		$content    = $this->replace_demo_placeholders( $content );
 		$block_data = array(
 			'post_title'   => $title,
 			'post_content' => wp_slash( $content ),
@@ -2016,6 +2080,8 @@ class Api {
 				$content     = str_replace( $placeholder, $final_url, $content );
 			}
 
+			$content = $this->replace_demo_placeholders( $content );
+
 			$content  = $this->check_navbar( $content );
 			$content  = str_replace( "\'", "'", $content );
 			$new_page = array(
@@ -2042,6 +2108,48 @@ class Api {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Replace imported dummy placeholders in companion demo content.
+	 *
+	 * @param string $content Content.
+	 *
+	 * @return string
+	 */
+	private function replace_demo_placeholders( $content ) {
+		$inserted_dummies = get_option(
+			'gutenverse_' . get_stylesheet() . '_dummy_inserted',
+			array(
+				'posts'        => array(),
+				'products'     => array(),
+				'category'     => array(),
+				'post_tag'     => array(),
+				'product_cat'  => array(),
+				'product_tag'  => array(),
+			)
+		);
+
+		$current_user                         = wp_get_current_user();
+		$placeholder_map                      = array_merge(
+			$inserted_dummies['posts'] ?? array(),
+			$inserted_dummies['products'] ?? array(),
+			$inserted_dummies['category'] ?? array(),
+			$inserted_dummies['post_tag'] ?? array(),
+			$inserted_dummies['product_cat'] ?? array(),
+			$inserted_dummies['product_tag'] ?? array()
+		);
+		$placeholder_map['{author|id|1}']     = $current_user->ID;
+		$placeholder_map['{author|name|1}']   = $current_user->display_name;
+
+		return preg_replace_callback(
+			'/\{(?:post|product|category|post_tag|product_cat|product_tag|author)\|[^{}]+\}/',
+			function ( $matches ) use ( $placeholder_map ) {
+				$placeholder = $matches[0];
+				return isset( $placeholder_map[ $placeholder ] ) ? $placeholder_map[ $placeholder ] : $placeholder;
+			},
+			$content
+		);
 	}
 
 	/**

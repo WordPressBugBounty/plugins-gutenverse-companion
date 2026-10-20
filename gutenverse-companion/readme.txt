@@ -1,9 +1,9 @@
 === Gutenverse Companion ===
 Contributors: jegstudio
 Tags: themes, basic, template, block, editor
-Tested up to: 6.9
-Requires PHP: 7.0
-Stable tag: 2.5.2
+Tested up to: 7.1
+Requires PHP: 7.4
+Stable tag: 2.5.3
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -65,6 +65,10 @@ Installing Gutenverse Companion is a breeze. Follow one of the two methods below
 For additional information and assistance, please visit our extensive <a href="https://gutenverse.com/docs/" target="_blank" rel="">Documentation</a> section.
 
 == Changelog ==
+
+= 2.5.3 =
+* fix unicode import 
+* add news import functionality
 
 = 2.5.2 =
 * fix vulnerability issues [credit by Patchstack]

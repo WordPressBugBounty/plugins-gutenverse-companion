@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Gutenverse Companion 2.5.2\n"
+"Project-Id-Version: Gutenverse Companion 2.5.3\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/gutenverse-companion\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-07-28T09:20:52+00:00\n"
+"POT-Creation-Date: 2026-10-20T03:59:33+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.9.0\n"
 "X-Domain: gutenverse-companion\n"
@@ -44,18 +44,21 @@ msgstr ""
 #: includes/class-api.php:225
 #: includes/class-api.php:245
 #: includes/class-api.php:265
-#: includes/class-api.php:285
-#: includes/class-api.php:304
-#: includes/class-api.php:323
-#: includes/class-api.php:342
-#: includes/class-api.php:362
-#: includes/gutenverse-theme/class-gutenverse-theme.php:288
-#: includes/gutenverse-theme/class-gutenverse-theme.php:310
-#: includes/gutenverse-theme/class-gutenverse-theme.php:330
-#: includes/gutenverse-theme/class-gutenverse-theme.php:350
-#: includes/gutenverse-theme/class-gutenverse-theme.php:370
-#: includes/gutenverse-theme/class-gutenverse-theme.php:390
-#: includes/gutenverse-theme/class-gutenverse-theme.php:410
+#: includes/class-api.php:288
+#: includes/class-api.php:308
+#: includes/class-api.php:328
+#: includes/class-api.php:347
+#: includes/class-api.php:366
+#: includes/class-api.php:385
+#: includes/class-api.php:405
+#: includes/gutenverse-theme/class-gutenverse-theme.php:296
+#: includes/gutenverse-theme/class-gutenverse-theme.php:318
+#: includes/gutenverse-theme/class-gutenverse-theme.php:338
+#: includes/gutenverse-theme/class-gutenverse-theme.php:358
+#: includes/gutenverse-theme/class-gutenverse-theme.php:378
+#: includes/gutenverse-theme/class-gutenverse-theme.php:398
+#: includes/gutenverse-theme/class-gutenverse-theme.php:418
+#: includes/gutenverse-theme/class-gutenverse-theme.php:438
 #: includes/lite-plus/class-lite-plus-theme.php:245
 #: includes/lite-plus/class-lite-plus-theme.php:267
 #: includes/lite-plus/class-lite-plus-theme.php:287
@@ -63,6 +66,7 @@ msgstr ""
 #: includes/lite-plus/class-lite-plus-theme.php:327
 #: includes/lite-plus/class-lite-plus-theme.php:347
 #: includes/lite-plus/class-lite-plus-theme.php:367
+#: includes/lite-plus/class-lite-plus-theme.php:387
 msgid "Forbidden Access"
 msgstr ""
 
@@ -637,6 +641,10 @@ msgid "Join Our Referal."
 msgstr ""
 
 #: assets/js/lite-plus-dashboard.js:2
+msgid "Installed & Activated"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Install Required Plugins"
 msgstr ""
 
@@ -645,7 +653,23 @@ msgid "To access the full range of theme features, please install and activate t
 msgstr ""
 
 #: assets/js/lite-plus-dashboard.js:2
-msgid "Installed & Activated"
+msgid "Complete your setup by installing the required Gutenverse plugins. Some features may not work properly until all plugins are installed and activated."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Free Plugins"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "PRO Plugins"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Premium Plugin Required"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Download Plugin"
 msgstr ""
 
 #: assets/js/lite-plus-dashboard.js:2
@@ -862,6 +886,42 @@ msgstr ""
 
 #: assets/js/lite-plus-dashboard.js:2
 msgid "Theme Dashboard → Import Pages"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Installing..."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Version"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Activated"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Setup Required to Continue"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "You're seeing this page because some required plugins are not installed or activated yet. To access the full theme dashboard and features, please complete the setup below."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Install & Activated Required Plugins"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Install & Activate All"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Activating..."
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
+msgid "Activate Plugin"
 msgstr ""
 
 #: assets/js/notices.js:1

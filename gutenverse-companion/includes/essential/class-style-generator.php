@@ -1021,7 +1021,6 @@ class Style_Generator {
 				break;
 			case 'gutenverse-pro/advance-tabs':
 				$instance = new Advance_Tabs( $attrs );
-				gutenverse_rlog($instance);
 				break;
 
 		}

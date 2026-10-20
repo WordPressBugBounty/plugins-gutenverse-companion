@@ -188,10 +188,16 @@ class Helper {
 			array(
 				'posts'                => array(),
 				'posts-dummies'        => array(),
+				'products'             => array(),
+				'products-dummies'     => array(),
 				'category'             => array(),
 				'category-dummies'     => array(),
 				'post_tag'             => array(),
 				'post_tag-dummies'     => array(),
+				'product_cat'          => array(),
+				'product_cat-dummies'  => array(),
+				'product_tag'          => array(),
+				'product_tag-dummies'  => array(),
 				'post_content_images'  => array(),
 				'post_featured_images' => array(),
 			)
@@ -245,7 +251,7 @@ class Helper {
 			$images = json_decode( $json, true );
 			if ( is_array( $images ) ) {
 				if ( ! $image_importer_ver ) {
-					$content = wp_slash( $content );
+					$content = preg_replace( '/(?<!\\\\)\\\\u([0-9a-fA-F]{4})/', '\\\\\\\\u$1', $pattern_data['content'] );
 
 					foreach ( $images as $image ) {
 						$img_url = $image['image_url'];
@@ -314,18 +320,21 @@ class Helper {
 		$page_id = null;
 		$content = $this->pattern_fix_content_attribute_value( $content );
 		$content = $this->escape_specific_regex_pattern( $content );
-		
-		if ( 'news' === $theme_mode ) {
-			// Step 1: Ensure at least one backslash.
-			$content = preg_replace( '/(?<!\\\\)u([0-9a-fA-F]{4})/', '\\\\u$1', $content );
 
-			$content = preg_replace_callback(
-				'/\\\\{1,3}u([0-9a-fA-F]{4})/',
-				function ( $m ) {
-					return '\\\\\\\\u' . $m[1]; // always 4 slashes.
-				},
-				$content
-			);
+		// Step 1: Ensure at least one backslash.
+		$content = preg_replace( '/(?<!\\\\)u([0-9a-fA-F]{4})/', '\\\\u$1', $content );
+
+		$content = preg_replace_callback(
+			'/\\\\{1,3}u([0-9a-fA-F]{4})/',
+			function ( $m ) {
+				return '\\u' . $m[1]; // always 4 slashes.
+			},
+			$content
+		);
+		$content = $this->decode_unicode_sequences( $content );
+
+		if ( 'news' === $theme_mode ) {
+
 			$page_id = wp_insert_post(
 				array(
 					'post_title'    => $page['pagetitle'],
@@ -335,6 +344,7 @@ class Helper {
 					'page_template' => $page['template'],
 				)
 			);
+
 		} else {
 			$query = new \WP_Query(
 				array(
@@ -343,16 +353,6 @@ class Helper {
 					'name'           => sanitize_title( $page['pagetitle'] ),
 					'posts_per_page' => 1,
 				)
-			);
-			// Step 1: Ensure at least one backslash.
-			$content = preg_replace( '/(?<!\\\\)u([0-9a-fA-F]{4})/', '\\\\u$1', $content );
-
-			$content = preg_replace_callback(
-				'/\\\\{1,3}u([0-9a-fA-F]{4})/',
-				function ( $m ) {
-					return '\\\\\\u' . $m[1]; // always 4 slashes.
-				},
-				$content
 			);
 
 			if ( $query->have_posts() ) {
@@ -714,8 +714,8 @@ class Helper {
 			$post    = get_page_by_path( $block_pattern . '-synced', OBJECT, 'wp_block' );
 			$post_id = $post ? $post->ID : null;
 			/**Download Image */
-
-			$content            = wp_slash( $pattern_data['content'] );
+			// Escape unicode data twice.
+			$content            = preg_replace( '/(?<!\\\\)\\\\u([0-9a-fA-F]{4})/', '\\\\\\\\u$1', $pattern_data['content'] );
 			$image_importer_ver = $pattern_data['image_importer_ver'] ?? null;
 			if ( isset( $pattern_data['images'] ) && ! empty( $pattern_data['images'] ) ) {
 				$images = json_decode( $pattern_data['images'] );
@@ -730,6 +730,7 @@ class Helper {
 						$image_id = $image->image_id;
 						if ( $image_id && 'null' !== $image_id ) {
 							$content = str_replace( '"imageId\":' . $image_id, '"imageId\":' . $data['id'], $content );
+							$content = str_replace( '"imageId":' . $image_id, '"imageId":' . $data['id'], $content );
 						}
 					}
 				} else {
@@ -873,6 +874,184 @@ class Helper {
 	}
 
 	/**
+	 * Import theme options from assets/misc/options.json.
+	 *
+	 * @return WP_REST_Response|\WP_Error
+	 */
+	public function import_options() {
+		global $wp_filesystem;
+
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+
+		if ( ! WP_Filesystem() ) {
+			return new \WP_Error( 'filesystem_error', 'Filesystem not available.' );
+		}
+
+		$theme_dir     = get_template_directory();
+		$active_slug   = get_stylesheet();
+		$options_file  = "{$theme_dir}/assets/misc/options.json";
+		$tracking_key  = "gutenverse_{$active_slug}_option_imported";
+		$imported_keys = get_option( $tracking_key, array() );
+
+		if ( ! $wp_filesystem->exists( $options_file ) ) {
+			return new WP_REST_Response(
+				array(
+					'message' => 'Options file not found. Skipping options import.',
+				),
+				200
+			);
+		}
+
+		$option_images_file = "{$theme_dir}/assets/misc/options_images.json";
+		$prepared_images    = array();
+
+		if ( $wp_filesystem->exists( $option_images_file ) ) {
+			$option_images   = json_decode( $wp_filesystem->get_contents( $option_images_file ), true );
+			$prepared_images = $this->prepare_options_images( $option_images );
+		}
+
+		$options = json_decode( $wp_filesystem->get_contents( $options_file ), true );
+		if ( ! is_array( $options ) ) {
+			return new \WP_Error( 'invalid_options_json', 'Invalid options JSON.' );
+		}
+
+		foreach ( $options as $option_key => $option_value ) {
+			$current_option = get_option( $option_key, null );
+			$merged_option  = $this->merge_import_option_value( $current_option, $option_value, $prepared_images );
+
+			if ( 'gvnews_settings' === $option_key ) {
+				$merged_option = $this->remap_gvnews_settings_option_images( $merged_option, $prepared_images );
+				$merged_option = $this->prepare_gvnews_settings( $merged_option );
+			}
+
+			update_option( $option_key, $merged_option, false );
+
+			if ( ! in_array( $option_key, $imported_keys, true ) ) {
+				$imported_keys[] = $option_key;
+			}
+		}
+
+		update_option( $tracking_key, array_values( array_unique( $imported_keys ) ), false );
+
+		return new WP_REST_Response(
+			array(
+				'message' => 'Theme options imported successfully.',
+			),
+			200
+		);
+	}
+
+
+	/**
+	 * Prepare Option Images
+	 *
+	 * @param mixed $option_images .
+	 * @return array
+	 */
+	public function prepare_options_images( $option_images ) {
+		$prepared_images = array();
+		if ( is_object( $option_images ) ) {
+			$option_images = (array) $option_images;
+		}
+
+		foreach ( $option_images as $img ) {
+			if ( is_object( $img ) ) {
+				$img = (array) $img;
+			}
+
+			if ( empty( $img['image_url'] ) || empty( $img['type'] ) || empty( $img['placeholders'] ) ) {
+				continue;
+			}
+
+			$image = self::check_image_exist( $img['image_url'] );
+			if ( ! $image ) {
+				$image = self::handle_file( $img['image_url'] );
+			}
+
+			foreach ( $img['placeholders'] as $holder ) {
+				$placeholder_parts = explode( '|', trim( $holder, '{}' ) );
+				$placeholder_type  = end( $placeholder_parts );
+				$img_val           = 'id' === $placeholder_type ? $image['id'] : $image['url'];
+
+				$prepared_images[ $img['type'] ][ $holder ] = $img_val;
+			}
+		}
+		return $prepared_images;
+	}
+
+	/**
+	 * Recursively merge imported option values into an existing option value.
+	 *
+	 * Only keys present in the imported data are changed. Sequential arrays are
+	 * treated as explicit replacements.
+	 *
+	 * @param mixed $current_value .
+	 * @param mixed $import_value .
+	 * @param array $prepared_images .
+	 *
+	 * @return mixed
+	 */
+	private function merge_import_option_value( $current_value, $import_value, $prepared_images ) {
+		if ( ! is_array( $import_value ) ) {
+			return $import_value;
+		}
+
+		if ( ! is_array( $current_value ) ) {
+			return $import_value;
+		}
+
+		if ( array_is_list( $import_value ) || array_is_list( $current_value ) ) {
+			return $import_value;
+		}
+
+		$merged_value = $current_value;
+
+		foreach ( $import_value as $key => $value ) {
+			$merged_value[ $key ] = array_key_exists( $key, $current_value )
+				? $this->merge_import_option_value( $current_value[ $key ], $value, $prepared_images )
+				: $value;
+		}
+
+		return $merged_value;
+	}
+
+	/**
+	 * Replace gvnews ads image placeholders with prepared option images.
+	 *
+	 * @param mixed $settings .
+	 * @param array $prepared_images .
+	 *
+	 * @return mixed
+	 */
+	private function remap_gvnews_settings_option_images( $settings, $prepared_images ) {
+		if ( empty( $prepared_images ) ) {
+			return $settings;
+		}
+
+		if ( is_array( $settings ) ) {
+			foreach ( $settings as $key => $value ) {
+				$settings[ $key ] = $this->remap_gvnews_settings_option_images( $value, $prepared_images );
+			}
+
+			return $settings;
+		}
+
+		if ( ! is_string( $settings ) ) {
+			return $settings;
+		}
+
+		foreach ( $prepared_images as $image_group ) {
+			if ( ! is_array( $image_group ) || ! array_key_exists( $settings, $image_group ) ) {
+				continue;
+			}
+
+			return $image_group[ $settings ];
+		}
+
+		return $settings;
+	}
+
+	/**
 	 * Extract and replace dinamic content.
 	 *
 	 * @param array $data .
@@ -925,156 +1104,132 @@ class Helper {
 	 *
 	 * @return WP_REST_Response
 	 */
-	public function import_posts() {
-		try {
-			global $wp_filesystem;
+	public function import_posts( $request = null ) {
+		global $wp_filesystem;
 
 			require_once ABSPATH . 'wp-admin/includes/file.php';
 			WP_Filesystem();
 
+			$template = null;
+		if ( $request && method_exists( $request, 'get_param' ) ) {
+			$template = sanitize_text_field( $request->get_param( 'template' ) );
+		}
+
 			$type = apply_filters( 'gutenverse_plus_mechanism_content_type', 'normal' );
 
-			if ( 'normal' === $type ) {
-				$type = apply_filters( 'gutenverse_jegtheme_theme_type', 'normal' );
-			}
+		if ( 'normal' === $type ) {
+			$type = apply_filters( 'gutenverse_jegtheme_theme_type', 'normal' );
+		}
 
-			if ( ! in_array( $type, array( 'news' ), false ) ) {
-				return new WP_REST_Response(
-					array(
-						'message' => 'Import failed due to an unexpected error while importing dummy content. Please try again.',
-					),
-					400
-				);
-			}
+		if ( empty( $template ) && ! in_array( $type, array( 'news' ), false ) ) {
+			return new WP_REST_Response(
+				array(
+					'message' => 'Import failed due to an unexpected error while importing dummy content. Please try again.',
+				),
+				400
+			);
+		}
 
 			$base_path         = get_theme_file_path( '/posts' );
+			$product_base_path = get_theme_file_path( '/products' );
+		if ( ! empty( $template ) ) {
+			$upload_dir      = wp_upload_dir();
+			$demo_folder     = trim( preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $template ) ), '-' );
+			$demo_base_path  = trailingslashit( $upload_dir['basedir'] ) . GUTENVERSE_COMPANION . '/' . $demo_folder . '/demo';
+			$base_path       = $demo_base_path . '/posts';
+			$product_base_path = $demo_base_path . '/products';
+		}
 			$active_theme_slug = get_stylesheet();
 			$inserted_dummies  = get_option(
 				'gutenverse_' . $active_theme_slug . '_dummy_inserted',
 				array(
 					'posts'                => array(),
 					'posts-dummies'        => array(),
+					'products'             => array(),
+					'products-dummies'     => array(),
 					'category'             => array(),
 					'category-dummies'     => array(),
 					'post_tag'             => array(),
 					'post_tag-dummies'     => array(),
+					'product_cat'          => array(),
+					'product_cat-dummies'  => array(),
+					'product_tag'          => array(),
+					'product_tag-dummies'  => array(),
 					'post_content_images'  => array(),
 					'post_featured_images' => array(),
 				)
 			);
 
-			/*
-			-----------------------------
-			* Import Taxonomies
-			* -----------------------------
-			*/
-			$post_categories_path = $base_path . '/post_categories.json';
-			if ( file_exists( $post_categories_path ) ) {
-				$data = json_decode( file_get_contents( $post_categories_path ), true );
-				$this->import_taxonomies( $data, 'category', $inserted_dummies );
-			}
+			$imported_any        = false;
+			$skip_product_import = false;
 
-			$post_tags_path = $base_path . '/post_tags.json';
-			if ( file_exists( $post_tags_path ) ) {
-				$data = json_decode( file_get_contents( $post_tags_path ), true );
-				$this->import_taxonomies( $data, 'post_tag', $inserted_dummies );
-			}
-
-			/*
-			-----------------------------
-			* Prepare Post Contents
-			* -----------------------------
-			*/
-			$prepared_contents = $this->prepare_post_contents(
-				$base_path . '/post_content.json',
-				$inserted_dummies
-			);
-
-			/*
-			-----------------------------
-			* Prepare Featured Images
-			* -----------------------------
-			*/
-			$prepared_images = $this->prepare_featured_images(
-				$base_path . '/post_images.json',
-				$inserted_dummies
-			);
-
-			/*
-			-----------------------------
-			* Insert / Update Posts
-			* -----------------------------
-			*/
-			$posts_path = trailingslashit( $base_path . '/post-list' );
-			$files      = $wp_filesystem->dirlist( $posts_path );
-
-			if ( empty( $files ) ) {
-				throw new \Exception( 'No post files found.' );
-			}
-
-			foreach ( $files as $file ) {
-				if ( '.DS_Store' === $file['name'] ) {
-					continue;
-				}
-
-				$post_data = json_decode(
-					file_get_contents( $posts_path . $file['name'] ),
-					true
-				);
-
-				if ( empty( $post_data['name'] ) ) {
-					continue;
-				}
-
-				$content = $prepared_contents[ array_rand( $prepared_contents ) ];
-				$image   = $prepared_images[ array_rand( $prepared_images ) ];
-
-				$post_id = $this->insert_or_update_post(
-					$post_data,
-					$content,
-					$image['id']
-				);
-
-				/* Register dummy mapping */
-				$inserted_dummies['posts'][ '{post|id|' . $post_data['ID'] . '}' ]    = $post_id;
-				$inserted_dummies['posts'][ '{post|title|' . $post_data['ID'] . '}' ] = $post_data['title'];
-				$inserted_dummies['posts-dummies'][]                                  = $post_id;
-
-				/* Categories & Tags */
-				$this->assign_terms(
-					$post_id,
-					$post_data['categories'] ?? array(),
-					'category',
-					$inserted_dummies
-				);
-
-				$this->assign_terms(
-					$post_id,
-					$post_data['tags'] ?? array(),
-					'post_tag',
-					$inserted_dummies
-				);
-			}
-
-			update_option(
-				'gutenverse_' . $active_theme_slug . '_dummy_inserted',
-				$inserted_dummies,
-				false
-			);
-
-		} catch ( \Throwable $th ) {
-			return new WP_REST_Response(
+		if ( is_dir( $base_path ) ) {
+			$imported_any = $this->import_dummy_post_type(
 				array(
-					'message' => 'Import failed due to an unexpected error while importing dummy content. Please try again.',
-					'details' => $th->getMessage(),
+					'base_path'          => $base_path,
+					'post_type'          => 'post',
+					'file_prefix'        => 'post',
+					'list_directory'     => 'post-list',
+					'mapping_key'        => 'posts',
+					'tracking_key'       => 'posts-dummies',
+					'placeholder_prefix' => 'post',
+					'taxonomies'         => array(
+						'category' => 'post_categories.json',
+						'post_tag' => 'post_tags.json',
+					),
+					'term_assignments'   => array(
+						'category' => 'categories',
+						'post_tag' => 'tags',
+					),
 				),
-				400
-			);
+				$inserted_dummies,
+				$wp_filesystem
+			) || $imported_any;
 		}
+		if ( is_dir( $product_base_path ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+			$woocommerce_active  = is_plugin_active( 'woocommerce/woocommerce.php' ) || is_plugin_active_for_network( 'woocommerce/woocommerce.php' );
+			$skip_product_import = ! $woocommerce_active;
+		}
+
+		if ( is_dir( $product_base_path ) && ! $skip_product_import && post_type_exists( 'product' ) ) {
+			$imported_any = $this->import_dummy_post_type(
+				array(
+					'base_path'          => $product_base_path,
+					'post_type'          => 'product',
+					'file_prefix'        => 'product',
+					'list_directory'     => 'product-list',
+					'mapping_key'        => 'products',
+					'tracking_key'       => 'products-dummies',
+					'placeholder_prefix' => 'product',
+					'taxonomies'         => array(
+						'product_cat' => 'product_categories.json',
+						'product_tag' => 'product_tags.json',
+					),
+					'term_assignments'   => array(
+						'product_cat' => 'categories',
+						'product_tag' => 'tags',
+					),
+				),
+				$inserted_dummies,
+				$wp_filesystem
+			) || $imported_any;
+		}
+
+		if ( ! $imported_any && ! $skip_product_import ) {
+			throw new \Exception( 'No importable dummy posts or products folders found.' );
+		}
+
+		update_option(
+			'gutenverse_' . $active_theme_slug . '_dummy_inserted',
+			$inserted_dummies,
+			false
+		);
 
 		return new WP_REST_Response(
 			array(
-				'message' => 'Posts imported successfully',
+				'message' => 'Dummy content imported successfully',
 			),
 			200
 		);
@@ -1163,6 +1318,127 @@ class Helper {
 	}
 
 	/**
+	 * Import dummy post type data from a theme folder.
+	 *
+	 * @param array              $config .
+	 * @param array              $inserted_dummies .
+	 * @param WP_Filesystem_Base $wp_filesystem .
+	 *
+	 * @throws \Exception When no importable files are found.
+	 *
+	 * @return bool
+	 */
+	private function import_dummy_post_type( $config, &$inserted_dummies, $wp_filesystem ) {
+		foreach ( $config['taxonomies'] as $taxonomy => $filename ) {
+			$taxonomy_path = $config['base_path'] . '/' . $filename;
+			if ( file_exists( $taxonomy_path ) ) {
+				$data = json_decode( file_get_contents( $taxonomy_path ), true );
+				$this->import_taxonomies( $data, $taxonomy, $inserted_dummies );
+			}
+		}
+
+		$image_in_each_dummies = array( 'product' );
+
+		$prepared_contents = $this->prepare_post_contents(
+			$config['base_path'] . '/' . $config['file_prefix'] . '_content.json',
+			$inserted_dummies
+		);
+		$prepared_images   = array();
+		if ( ! in_array( $config['post_type'], $image_in_each_dummies, true ) ) {
+			$prepared_images = $this->prepare_featured_images(
+				$config['base_path'] . '/' . $config['file_prefix'] . '_images.json',
+				$inserted_dummies
+			);
+		}
+
+		$items_path = trailingslashit( $config['base_path'] . '/' . $config['list_directory'] );
+		$files      = $wp_filesystem->dirlist( $items_path );
+
+		if ( empty( $files ) ) {
+			throw new \Exception(
+				sprintf(
+					'No %s files found.',
+					esc_html( $config['post_type'] )
+				)
+			);
+		}
+
+		$imported_any = false;
+
+		foreach ( $files as $file ) {
+			if ( '.DS_Store' === $file['name'] ) {
+				continue;
+			}
+
+			$item_data = json_decode(
+				file_get_contents( $items_path . $file['name'] ),
+				true
+			);
+
+			if ( empty( $item_data['name'] ) ) {
+				continue;
+			}
+
+			$content = $this->get_random_prepared_content( $prepared_contents );
+
+			if ( in_array( $item_data['post_type'], $image_in_each_dummies, true ) ) {
+
+				$prepared_images = array();
+				$images_list     = $item_data['images'] ?? array();
+
+				if ( is_object( $images_list ) ) {
+					$images_list = (array) $images_list;
+				}
+
+				foreach ( $images_list as $img ) {
+					if ( is_object( $img ) ) {
+						$img = (array) $img;
+					}
+
+					if ( empty( $img['image_url'] ) || empty( $img['type'] ) || empty( $img['placeholders'] ) ) {
+						continue;
+					}
+
+					$image = self::check_image_exist( $img['image_url'] );
+					if ( ! $image ) {
+						$image = self::handle_file( $img['image_url'] );
+					}
+
+					foreach ( $img['placeholders'] as $holder ) {
+						$placeholder_parts = explode( '|', trim( $holder, '{}' ) );
+						$placeholder_type  = end( $placeholder_parts );
+						$img_val           = 'id' === $placeholder_type ? $image['id'] : $image['url'];
+
+						$prepared_images[ $img['type'] ][ $holder ] = $img_val;
+					}
+				}
+			}
+			$item_id = $this->insert_or_update_post(
+				$item_data,
+				$content,
+				$prepared_images,
+				$item_data['post_type']
+			);
+			$inserted_dummies[ $config['mapping_key'] ][ '{' . $config['placeholder_prefix'] . '|id|' . $item_data['ID'] . '}' ]    = $item_id;
+			$inserted_dummies[ $config['mapping_key'] ][ '{' . $config['placeholder_prefix'] . '|title|' . $item_data['ID'] . '}' ] = $item_data['title'];
+			$inserted_dummies[ $config['tracking_key'] ][] = $item_id;
+
+			foreach ( $config['term_assignments'] as $taxonomy => $source_key ) {
+				$this->assign_terms(
+					$item_id,
+					$item_data[ $source_key ] ?? array(),
+					$taxonomy,
+					$inserted_dummies
+				);
+			}
+
+			$imported_any = true;
+		}
+
+		return $imported_any;
+	}
+
+	/**
 	 * Decode unicode sequences
 	 *
 	 * @param string $content .
@@ -1177,7 +1453,7 @@ class Helper {
 
 				// Always keep quotes escaped.
 				if ( '0022' === $hex ) {
-					return '\"';
+					return '\'';
 				}
 
 				$codepoint = hexdec( $hex );
@@ -1218,12 +1494,31 @@ class Helper {
 					$inserted_dummies['post_content_images'][] = $image['id'];
 					$content                                   = str_replace( $img, $image['url'], $content );
 				}
-			} else {
+			} elseif ( isset( $post['images'] ) ) {
 				foreach ( $post['images'] as $key => $image ) {
+					if ( is_string( $image ) ) {
+						$data = self::check_image_exist( $image );
+						if ( ! $data ) {
+							$data = self::handle_file( $image );
+						}
+
+						$inserted_dummies['post_content_images'][] = $data['id'];
+						$content                                   = str_replace( $image, $data['url'], $content );
+						continue;
+					}
+
+					if ( is_object( $image ) ) {
+						$image = (array) $image;
+					}
+
+					if ( ! is_array( $image ) || empty( $image['pattern'] ) ) {
+						continue;
+					}
+
 					$url     = $key;
 					$pattern = $image['pattern'];
 					$data    = self::check_image_exist( $url );
-					$alt     = isset( $image['alt'] ) ?? '';
+					$alt     = $image['alt'] ?? '';
 					if ( ! $data ) {
 						$data = self::handle_file( $url, $alt );
 					}
@@ -1255,7 +1550,7 @@ class Helper {
 
 			$results[] = array(
 				'content' => $content,
-				'excerpt' => $post['excerpt'],
+				'excerpt' => isset( $post['excerpt'] ) ? $post['excerpt'] : '',
 			);
 		}
 
@@ -1297,15 +1592,52 @@ class Helper {
 	}
 
 	/**
+	 * Get a random prepared content entry with a safe fallback.
+	 *
+	 * @param array $prepared_contents .
+	 *
+	 * @return array
+	 */
+	private function get_random_prepared_content( $prepared_contents ) {
+		if ( empty( $prepared_contents ) ) {
+			return array(
+				'content' => '',
+				'excerpt' => '',
+			);
+		}
+
+		return $prepared_contents[ array_rand( $prepared_contents ) ];
+	}
+
+	/**
+	 * Get a random prepared image entry with a safe fallback.
+	 *
+	 * @param array $prepared_images .
+	 *
+	 * @return array
+	 */
+	private function get_random_prepared_image( $prepared_images ) {
+		if ( empty( $prepared_images ) ) {
+			return array(
+				'id'  => 0,
+				'url' => '',
+			);
+		}
+
+		return $prepared_images[ array_rand( $prepared_images ) ];
+	}
+
+	/**
 	 * Insert or Update Post
 	 *
-	 * @param array $data .
-	 * @param array $content .
-	 * @param int   $thumbnail_id .
+	 * @param array  $data .
+	 * @param array  $content .
+	 * @param array  $prepared_images .
+	 * @param string $post_type .
 	 *
 	 * @return int
 	 */
-	private function insert_or_update_post( $data, $content, $thumbnail_id ) {
+	private function insert_or_update_post( $data, $content, $prepared_images, $post_type = 'post' ) {
 		$args = array(
 			'name'        => $data['name'],
 			'post_type'   => 'post',
@@ -1321,20 +1653,96 @@ class Helper {
 			'post_excerpt' => $content['excerpt'],
 			'post_status'  => 'publish',
 			'post_author'  => get_current_user_id(),
-			'post_type'    => 'post',
+			'post_type'    => $post_type,
 			'post_date'    => $data['date'],
 		);
 
 		if ( $existing ) {
-			$postarr['ID'] = $existing[0]->ID;
-			$post_id       = wp_update_post( $postarr );
-		} else {
-			$post_id = wp_insert_post( $postarr );
+			wp_delete_post( $existing[0]->ID, true );
 		}
 
-		set_post_thumbnail( $post_id, $thumbnail_id );
+		$post_id = wp_insert_post( $postarr, true );
+
+		if ( is_wp_error( $post_id ) ) {
+			gutenverse_rlog(
+				'Post insert/update failed',
+				$post_id->get_error_message(),
+				$postarr
+			);
+
+			return $post_id;
+		}
+
+		if ( ! empty( $data['post_format'] ) && $data['post_format'] ) {
+			set_post_format( $post_id, $data['post_format'] );
+		}
+		$this->sync_meta_data( $post_id, $data, $prepared_images );
+
+		if ( 'product' !== $post_type ) {
+
+			$image = $this->get_random_prepared_image( $prepared_images );
+
+			if ( ! empty( $image['id'] ) ) {
+
+				$thumbnail_id = (int) $image['id'];
+				set_post_thumbnail( $post_id, $thumbnail_id );
+			}
+		}
 
 		return $post_id;
+	}
+
+	/**
+	 * Sync Meta data for dummies
+	 *
+	 * @param int   $post_id .
+	 * @param array $data .
+	 * @param array $prepared_images .
+	 *
+	 * @return void
+	 */
+	private function sync_meta_data( $post_id, $data, $prepared_images ) {
+		$metas = $data['metas'];
+		wp_set_object_terms( $post_id, 'simple', 'product_type' );
+		$unique_process_meta = array( '_thumbnail_id', '_product_image_gallery' );
+		foreach ( $metas as $key => $meta ) {
+			if ( in_array( $key, $unique_process_meta, true ) ) {
+				switch ( $key ) {
+					case '_thumbnail_id':
+						if (
+							'product' === $data['post_type'] &&
+							! empty( $prepared_images['product_featured_image'] ) &&
+							is_scalar( $meta ) &&
+							isset( $prepared_images['product_featured_image'][ $meta ] )
+						) {
+							set_post_thumbnail( $post_id, (int) $prepared_images['product_featured_image'][ $meta ] );
+						}
+						break;
+					case '_product_image_gallery':
+						if ( ! empty( $prepared_images['product_gallery'] ) ) {
+							$arr_val = array();
+							foreach ( $meta as $mt ) {
+								if (
+									is_scalar( $mt ) &&
+									isset( $prepared_images['product_gallery'][ $mt ] )
+								) {
+									$arr_val[] = (int) $prepared_images['product_gallery'][ $mt ];
+								}
+							}
+
+							$string_val = implode( ',', $arr_val );
+
+							if ( ! empty( $string_val ) ) {
+								update_post_meta( $post_id, $key, (string) $string_val );
+							}
+						}
+
+						break;
+				}
+			} else {
+				update_post_meta( $post_id, $key, $meta );
+			}
+		}
 	}
 
 	/**
@@ -1395,16 +1803,22 @@ class Helper {
 				array(
 					'posts'                => array(),
 					'posts-dummies'        => array(),
+					'products'             => array(),
+					'products-dummies'     => array(),
 					'category'             => array(),
 					'category-dummies'     => array(),
 					'post_tag'             => array(),
 					'post_tag-dummies'     => array(),
+					'product_cat'          => array(),
+					'product_cat-dummies'  => array(),
+					'product_tag'          => array(),
+					'product_tag-dummies'  => array(),
 					'post_content_images'  => array(),
 					'post_featured_images' => array(),
 				)
 			);
 
-			$merge_all_dummies                    = array_merge( $inserted_dummies['posts'], $inserted_dummies['category'], $inserted_dummies['post_tag'] );
+			$merge_all_dummies                    = array_merge( $inserted_dummies['posts'], $inserted_dummies['products'], $inserted_dummies['category'], $inserted_dummies['post_tag'], $inserted_dummies['product_cat'], $inserted_dummies['product_tag'] );
 			$current_user                         = wp_get_current_user();
 			$merge_all_dummies['{author|id|1}']   = $current_user->ID;
 			$merge_all_dummies['{author|name|1}'] = $current_user->display_name;
@@ -1490,7 +1904,12 @@ class Helper {
 				);
 			}
 
+			$this->remap_imported_dummy_post_meta( $inserted_dummies, $merge_all_dummies );
+			$this->remap_imported_options( $inserted_dummies );
+
 			update_option( 'gutenverse_' . get_stylesheet() . '_content_inserted', $inserted_content, false );
+
+			flush_rewrite_rules();
 		} catch ( \Throwable $th ) {
 			return new WP_REST_Response(
 				array(
@@ -1514,21 +1933,38 @@ class Helper {
 		try {
 			$active_theme_slug = get_stylesheet();
 			$dummy_inserted    = get_option( 'gutenverse_' . $active_theme_slug . '_dummy_inserted', array() );
-			$keys              = array(
+			$post_keys         = array(
 				'posts-dummies',
-				'category-dummies',
-				'post_tag-dummies',
+				'products-dummies',
 				'post_content_images',
 				'post_featured_images',
 			);
-			foreach ( $keys as $key ) {
-				$dummies = $dummy_inserted[ $key ];
+			$term_keys         = array(
+				'category-dummies',
+				'post_tag-dummies',
+				'product_cat-dummies',
+				'product_tag-dummies',
+			);
+
+			foreach ( $post_keys as $key ) {
+				$dummies = $dummy_inserted[ $key ] ?? array();
 				foreach ( $dummies as $dummy ) {
 					if ( is_numeric( $dummy ) ) {
 						wp_delete_post( $dummy );
 					}
 				}
 			}
+
+			foreach ( $term_keys as $taxonomy_key ) {
+				$dummies  = $dummy_inserted[ $taxonomy_key ] ?? array();
+				$taxonomy = str_replace( '-dummies', '', $taxonomy_key );
+				foreach ( $dummies as $dummy ) {
+					if ( is_numeric( $dummy ) ) {
+						wp_delete_term( (int) $dummy, $taxonomy );
+					}
+				}
+			}
+
 			delete_option( 'gutenverse_' . $active_theme_slug . '_dummy_inserted' );
 		} catch ( \Throwable $th ) {
 			return new WP_REST_Response(
@@ -1581,5 +2017,370 @@ class Helper {
 			}
 		}
 		return $content;
+	}
+
+	/**
+	 * Remap imported theme options after pages, dummies, and menus exist.
+	 *
+	 * @param array $inserted_dummies .
+	 *
+	 * @return void
+	 */
+	private function remap_imported_options( $inserted_dummies ) {
+		$active_slug  = get_stylesheet();
+		$tracking_key = "gutenverse_{$active_slug}_option_imported";
+		$option_keys  = get_option( $tracking_key, array() );
+
+		if ( empty( $option_keys ) || ! is_array( $option_keys ) ) {
+			return;
+		}
+
+		$placeholder_map                    = array_merge( $inserted_dummies['posts'], $inserted_dummies['products'], $inserted_dummies['category'], $inserted_dummies['post_tag'], $inserted_dummies['product_cat'], $inserted_dummies['product_tag'] );
+		$current_user                       = wp_get_current_user();
+		$placeholder_map['{author|id|1}']   = $current_user->ID;
+		$placeholder_map['{author|name|1}'] = $current_user->display_name;
+
+		foreach ( array_unique( $option_keys ) as $option_key ) {
+			$option_value = get_option( $option_key, null );
+
+			if ( null === $option_value ) {
+				continue;
+			}
+
+			$remapped_value = $this->remap_option_placeholders( $option_value, $placeholder_map );
+
+			update_option( $option_key, $remapped_value, false );
+		}
+	}
+
+	/**
+	 * Recursively remap placeholders inside imported option data.
+	 *
+	 * @param mixed $value .
+	 * @param array $placeholder_map .
+	 *
+	 * @return mixed
+	 */
+	private function remap_option_placeholders( $value, $placeholder_map ) {
+		if ( is_array( $value ) ) {
+			foreach ( $value as $key => $item ) {
+				$value[ $key ] = $this->remap_option_placeholders( $item, $placeholder_map );
+			}
+
+			return $value;
+		}
+
+		if ( is_string( $value ) ) {
+			return preg_replace_callback(
+				'/\{(?:page|post|product|category|post_tag|product_cat|product_tag|author|image)\|[^{}]+\}/',
+				function ( $matches ) use ( $placeholder_map ) {
+					return $this->resolve_option_placeholder( $matches[0], $placeholder_map );
+				},
+				$value
+			);
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Resolve a single placeholder used inside imported theme options.
+	 *
+	 * @param string $placeholder .
+	 * @param array  $placeholder_map .
+	 *
+	 * @return string|int
+	 */
+	private function resolve_option_placeholder( $placeholder, $placeholder_map ) {
+		$parts = explode( '|', trim( $placeholder, '{}' ) );
+		$type  = $parts[0] ?? '';
+
+		if ( 'image' === $type ) {
+			return $this->resolve_option_image_placeholder( $parts );
+		}
+
+		return isset( $placeholder_map[ $placeholder ] ) ? $placeholder_map[ $placeholder ] : '';
+	}
+
+	/**
+	 * Resolve an image placeholder used inside imported theme options.
+	 *
+	 * @param array $parts .
+	 *
+	 * @return string|int
+	 */
+	private function resolve_option_image_placeholder( $parts ) {
+		$image = $this->get_imported_option_image( $parts );
+
+		if ( empty( $image['id'] ) ) {
+			return '';
+		}
+
+		$value_type = end( $parts );
+		if ( 'url' === $value_type ) {
+			if ( 'case2' === ( $parts[1] ?? '' ) ) {
+				$size = $parts[3] ?? 'full';
+				return wp_get_attachment_image_url( $image['id'], $size ) ?: $image['url'];
+			}
+
+			return $image['url'];
+		}
+
+		return $image['id'];
+	}
+
+	/**
+	 * Find or import a theme image referenced by an options placeholder.
+	 *
+	 * @param array $parts .
+	 *
+	 * @return array|null
+	 */
+	private function get_imported_option_image( $parts ) {
+		$source_parts = $parts;
+		array_pop( $source_parts );
+		$source_key = 'theme-option-image://' . implode( '/', $source_parts );
+		$existing   = self::check_image_exist( $source_key );
+
+		if ( $existing ) {
+			return $existing;
+		}
+
+		$file_path = $this->locate_option_image_file( $parts );
+		if ( empty( $file_path ) ) {
+			return null;
+		}
+
+		return $this->import_local_option_image( $file_path, $source_key );
+	}
+
+	/**
+	 * Locate the source file for a theme option image placeholder.
+	 *
+	 * @param array $parts .
+	 *
+	 * @return string|null
+	 */
+	private function locate_option_image_file( $parts ) {
+		$theme_dir = get_template_directory();
+		$group     = $parts[1] ?? '';
+		$name      = $parts[2] ?? '';
+
+		if ( empty( $name ) ) {
+			return null;
+		}
+
+		$search_roots = array_filter(
+			array_unique(
+				array(
+					trailingslashit( $theme_dir . '/assets/misc' ),
+					trailingslashit( $theme_dir . '/assets/img' ),
+					trailingslashit( $theme_dir . '/assets/images' ),
+					trailingslashit( $theme_dir . '/assets/misc/images' ),
+				)
+			)
+		);
+
+		foreach ( $search_roots as $root ) {
+			$candidate_patterns = array();
+
+			if ( 'case2' !== $group ) {
+				$candidate_patterns[] = $root . $group . '/' . $name . '.*';
+				$candidate_patterns[] = $root . $group . '/' . $name . '/*';
+			}
+
+			$candidate_patterns[] = $root . $name . '.*';
+
+			foreach ( $candidate_patterns as $pattern ) {
+				$matches = glob( $pattern );
+				if ( ! empty( $matches ) ) {
+					foreach ( $matches as $match ) {
+						if ( is_file( $match ) ) {
+							return $match;
+						}
+					}
+				}
+			}
+		}
+
+		foreach ( $search_roots as $root ) {
+			if ( ! is_dir( $root ) ) {
+				continue;
+			}
+
+			$iterator = new \RecursiveIteratorIterator(
+				new \RecursiveDirectoryIterator( $root, \FilesystemIterator::SKIP_DOTS )
+			);
+
+			foreach ( $iterator as $file ) {
+				if ( ! $file->isFile() ) {
+					continue;
+				}
+
+				if ( pathinfo( $file->getFilename(), PATHINFO_FILENAME ) !== (string) $name ) {
+					continue;
+				}
+
+				if ( 'case2' !== $group && basename( dirname( $file->getPathname() ) ) !== (string) $group ) {
+					continue;
+				}
+
+				return $file->getPathname();
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Import a local theme image into the media library.
+	 *
+	 * @param string $file_path .
+	 * @param string $source_key .
+	 *
+	 * @return array|null
+	 */
+	private function import_local_option_image( $file_path, $source_key ) {
+		$file_contents = file_get_contents( $file_path );
+
+		if ( false === $file_contents ) {
+			return null;
+		}
+
+		$upload = wp_upload_bits( basename( $file_path ), null, $file_contents );
+		if ( ! empty( $upload['error'] ) ) {
+			return null;
+		}
+
+		$file_type  = wp_check_filetype( basename( $upload['file'] ) );
+		$attachment = array(
+			'post_mime_type' => $file_type['type'],
+			'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $upload['file'] ) ),
+			'post_content'   => '',
+			'post_status'    => 'inherit',
+		);
+
+		include_once ABSPATH . 'wp-admin/includes/image.php';
+		$attach_id = wp_insert_attachment( $attachment, $upload['file'] );
+
+		if ( is_wp_error( $attach_id ) ) {
+			return null;
+		}
+
+		update_post_meta( $attach_id, '_import_source', $source_key );
+
+		try {
+			$attach_data = wp_generate_attachment_metadata( $attach_id, $upload['file'] );
+			wp_update_attachment_metadata( $attach_id, $attach_data );
+		} catch ( \Throwable $th ) {
+			gutenverse_rlog( $th->getMessage() );
+		}
+
+		return array(
+			'id'  => $attach_id,
+			'url' => $upload['url'],
+		);
+	}
+
+	/**
+	 * Prepare special gvnews settings after remapping.
+	 *
+	 * @param mixed $settings .
+	 *
+	 * @return mixed
+	 */
+	private function prepare_gvnews_settings( $settings ) {
+		if ( ! is_array( $settings ) ) {
+			return $settings;
+		}
+
+		$features = array();
+
+		if ( isset( $settings['features'] ) ) {
+			if ( class_exists( '\GUTENVERSE\NEWS\ESSENTIAL\Features' ) && is_array( $settings['features'] ) ) {
+				$features = array_values(
+					array_filter(
+						$settings['features'],
+						'is_string'
+					)
+				);
+
+				\GUTENVERSE\NEWS\ESSENTIAL\Features::activate_features( $features );
+			}
+
+			$settings['features'] = $features;
+		}
+
+		return $settings;
+	}
+
+	/**
+	 * Remap imported dummy post metas using the placeholder map.
+	 *
+	 * @param array $inserted_dummies .
+	 * @param array $placeholder_map .
+	 *
+	 * @return void
+	 */
+	private function remap_imported_dummy_post_meta( $inserted_dummies, $placeholder_map ) {
+		$post_ids = array_merge(
+			$inserted_dummies['posts-dummies'] ?? array(),
+			$inserted_dummies['products-dummies'] ?? array()
+		);
+
+		$post_ids       = array_values( array_unique( array_map( 'intval', $post_ids ) ) );
+		$skip_meta_keys = array( '_thumbnail_id', '_product_image_gallery' );
+
+		foreach ( $post_ids as $post_id ) {
+			if ( empty( $post_id ) ) {
+				continue;
+			}
+
+			$meta_values = get_post_meta( $post_id );
+			foreach ( $meta_values as $meta_key => $values ) {
+				unset( $values );
+
+				if ( in_array( $meta_key, $skip_meta_keys, true ) ) {
+					continue;
+				}
+
+				$current_meta = get_post_meta( $post_id, $meta_key, true );
+				$remapped     = $this->remap_dummy_meta_placeholders( $current_meta, $placeholder_map );
+
+				if ( $remapped !== $current_meta ) {
+					update_post_meta( $post_id, $meta_key, $remapped );
+				}
+			}
+		}
+	}
+
+	/**
+	 * Recursively remap placeholders inside imported dummy post meta values.
+	 *
+	 * @param mixed $value .
+	 * @param array $placeholder_map .
+	 *
+	 * @return mixed
+	 */
+	private function remap_dummy_meta_placeholders( $value, $placeholder_map ) {
+		if ( is_array( $value ) ) {
+			foreach ( $value as $key => $item ) {
+				$value[ $key ] = $this->remap_dummy_meta_placeholders( $item, $placeholder_map );
+			}
+
+			return $value;
+		}
+
+		if ( is_string( $value ) ) {
+			return preg_replace_callback(
+				'/\{(?:page|post|product|category|post_tag|product_cat|product_tag|author)\|[^{}]+\}/',
+				function ( $matches ) use ( $placeholder_map ) {
+					return isset( $placeholder_map[ $matches[0] ] ) ? $placeholder_map[ $matches[0] ] : '';
+				},
+				$value
+			);
+		}
+
+		return $value;
 	}
 }
