@@ -2167,16 +2167,24 @@ class Api {
 			'gutenverse/mega-menu-item',
 		);
 		foreach ( $blocks as $block ) {
-			if ( in_array( $block['blockName'], $block_menus ) ) {
+			if ( in_array( $block['blockName'], $block_menus, true ) ) {
+				$menu_attribute = 'gutenverse/mega-menu-item' === $block['blockName'] ? 'subMenuList' : 'menuId';
+				if ( 'subMenuList' === $menu_attribute && 'list' !== ( $block['attrs']['subMenuType'] ?? '' ) ) {
+					continue;
+				}
 				$block_before = serialize_block( $block );
-				$block_after  = '';
+				$block_after  = $block_before;
 
-				if ( ! empty( $block['attrs']['menuId'] ) ) {
-					$original_menu_id = $block['attrs']['menuId'];
+				if ( ! empty( $block['attrs'][ $menu_attribute ] ) && is_numeric( $block['attrs'][ $menu_attribute ] ) ) {
+					$original_menu_id = $block['attrs'][ $menu_attribute ];
 					$menu_exists      = wp_get_nav_menu_object( 'menu-' . $original_menu_id );
 
 					if ( ! $menu_exists ) {
 						$menu_id = wp_create_nav_menu( 'menu-' . $original_menu_id );
+						if ( is_wp_error( $menu_id ) ) {
+							continue;
+						}
+
 						wp_update_nav_menu_item(
 							$menu_id,
 							0,
@@ -2200,8 +2208,8 @@ class Api {
 					} else {
 						$menu_id = $menu_exists->term_id;
 					}
-					$block['attrs']['menuId'] = $menu_id;
-					$block_after              = serialize_block( $block );
+					$block['attrs'][ $menu_attribute ] = $menu_id;
+					$block_after                      = serialize_block( $block );
 				}
 
 				$content = str_replace( $block_before, $block_after, $content );

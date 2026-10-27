@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv3.
 msgid ""
 msgstr ""
-"Project-Id-Version: Gutenverse Companion 2.5.3\n"
+"Project-Id-Version: Gutenverse Companion 2.5.4\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/gutenverse-companion\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-20T03:59:33+00:00\n"
+"POT-Creation-Date: 2026-10-27T08:22:49+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.9.0\n"
 "X-Domain: gutenverse-companion\n"
@@ -753,15 +753,15 @@ msgid "Theme Dashboard → Import Pages."
 msgstr ""
 
 #: assets/js/lite-plus-dashboard.js:2
+msgid "Import Page"
+msgstr ""
+
+#: assets/js/lite-plus-dashboard.js:2
 msgid "Imported"
 msgstr ""
 
 #: assets/js/lite-plus-dashboard.js:2
 msgid "Page Already Exists"
-msgstr ""
-
-#: assets/js/lite-plus-dashboard.js:2
-msgid "Import Page"
 msgstr ""
 
 #: assets/js/lite-plus-dashboard.js:2

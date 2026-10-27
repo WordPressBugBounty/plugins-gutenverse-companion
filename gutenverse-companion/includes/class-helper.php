@@ -251,7 +251,7 @@ class Helper {
 			$images = json_decode( $json, true );
 			if ( is_array( $images ) ) {
 				if ( ! $image_importer_ver ) {
-					$content = preg_replace( '/(?<!\\\\)\\\\u([0-9a-fA-F]{4})/', '\\\\\\\\u$1', $pattern_data['content'] );
+					$content = preg_replace( '/(?<!\\\\)\\\\u([0-9a-fA-F]{4})/', '\\\\\\\\u$1', $content );
 
 					foreach ( $images as $image ) {
 						$img_url = $image['image_url'];
@@ -402,7 +402,8 @@ class Helper {
 			);
 
 			/**Check if content has menu */
-			preg_match_all( '/"menuId":(\d+)/', $content, $matches );
+			preg_match_all( '/("(?:menuId|subMenuList)"\s*:\s*)(["\']?)(\d+)\2/', $content, $matches );
+			
 			if ( ! empty( $matches[0] ) ) {
 				$inserted_content['content_has_menus'][] = $page_id;
 			}
@@ -824,7 +825,7 @@ class Helper {
 			}
 
 				/**Check if content has menu */
-				preg_match_all( '/"menuId":(\d+)/', $content, $matches );
+				preg_match_all( '/("(?:menuId|subMenuList)"\s*:\s*)(["\']?)(\d+)\2/', $content, $matches );
 			if ( ! empty( $matches[0] ) ) {
 				$inserted_content['content_has_menus'][] = $post_id;
 			}
@@ -1899,7 +1900,7 @@ class Helper {
 				wp_update_post(
 					array(
 						'ID'           => $post->ID,
-						'post_content' => $content,
+						'post_content' => wp_slash( $content ),
 					)
 				);
 			}
@@ -1999,18 +2000,46 @@ class Helper {
 			'gutenverse/mega-menu-item',
 		);
 		foreach ( $blocks as $block ) {
-			if ( in_array( $block['blockName'], $block_menus ) ) {
+			if ( in_array( $block['blockName'], $block_menus, true ) ) {
+				$menu_attribute = 'gutenverse/mega-menu-item' === $block['blockName'] ? 'subMenuList' : 'menuId';
+				if ( 'subMenuList' === $menu_attribute && 'list' !== ( $block['attrs']['subMenuType'] ?? '' ) ) {
+					continue;
+				}
 				$block_before = serialize_block( $block );
-				$block_after  = '';
+				$block_after  = $block_before;
 
-				if ( ! empty( $block['attrs']['menuId'] ) ) {
-					$original_menu_id = $block['attrs']['menuId'];
-					$menu_exists      = $placeholder_data[ 'old_' . $original_menu_id ];
-					if ( $menu_exists ) {
-						$menu_id                  = $menu_exists['id'];
-						$block['attrs']['menuId'] = $menu_id;
+				if ( ! empty( $block['attrs'][ $menu_attribute ] ) && is_numeric( $block['attrs'][ $menu_attribute ] ) ) {
+					$original_menu_id = $block['attrs'][ $menu_attribute ];
+					$mapped_menu_id   = $placeholder_data[ 'old_' . $original_menu_id ]['id'] ?? null;
+
+					if ( ! empty( $mapped_menu_id ) && is_numeric( $mapped_menu_id ) ) {
+						$block['attrs'][ $menu_attribute ] = (int) $mapped_menu_id;
+						$content = str_replace( $block_before, serialize_block( $block ), $content );
+						continue;
 					}
-					$block_after = serialize_block( $block );
+
+					$menu_exists      = wp_get_nav_menu_object( 'menu-' . $original_menu_id );
+
+					if ( ! $menu_exists ) {
+						$menu_id = wp_create_nav_menu( 'menu-' . $original_menu_id );
+						if ( is_wp_error( $menu_id ) ) {
+							continue;
+						}
+
+						wp_update_nav_menu_item(
+							$menu_id,
+							0,
+							array(
+								'menu-item-title'  => 'Home',
+								'menu-item-url'    => home_url( '/' ),
+								'menu-item-status' => 'publish',
+							)
+						);
+					} else {
+						$menu_id = $menu_exists->term_id;
+					}
+					$block['attrs'][ $menu_attribute ] = $menu_id;
+					$block_after                       = serialize_block( $block );
 				}
 
 				$content = str_replace( $block_before, $block_after, $content );
